@@ -1,0 +1,14 @@
+# Docs
+
+프로젝트 문서는 `docs/spec`를 기준으로 관리한다.
+
+- `shared`: 기능 공통 범위, 용어, 기술 제약
+- `features`: 기능별 spec 문서
+- `templates`: 신규 기능 확장 시 재사용할 템플릿
+
+현재 1차 개발 범위는 출석체크이며, 랜덤 게임은 문서 자리만 먼저 확보한다.
+
+추가 입력물이 들어오면 아래 문서를 우선 갱신한다.
+
+- 제공 예정 DDL: `docs/spec/features/attendance-check/data-spec.md`
+- 제공 예정 API 목록: `docs/spec/features/attendance-check/api-spec.md`
