@@ -24,13 +24,5 @@
 
 ## 권장 패키지 방향
 
-구현 시점에는 아래와 같은 기능 중심 패키지 구조를 우선 고려한다.
-
-```text
-com.example.event
-  common
-  attendance
-  randomgame
-```
-
-세부 패키지는 실제 DDL/API 확정 후 조정한다.
+- 기본 패키지 구조는 팀 예시와 맞춘 레이어드 + 포트/어댑터 혼합 구조를 사용한다.
+- 상세 기준은 `shared/package-structure.md`를 따른다.
