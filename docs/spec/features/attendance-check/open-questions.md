@@ -7,7 +7,8 @@
 - [x] 출석 단위는 `event_round` 기준의 일자성 회차다.
 - [x] 월간 출석 이벤트는 같은 `event_id` 아래 날짜 수만큼 `event_round`를 가진다.
 - [x] `event_applicant`는 이벤트 참여 가능 대상자 풀로 사용된다.
-- [x] `event_applicant.round_id`는 선택값이다.
+- [x] `event_applicant.round_id`는 필수값이다.
+- [x] 이벤트 생성 시 `event_round`는 최소 1개 생성되므로 `event_applicant.round_id`는 기준 회차를 가진다.
 - [x] `event_entry`는 출석 성공 및 향후 랜덤 리워드 참여 이력을 append-only로 저장한다.
 - [x] `event_win`은 실제 지급 보상과 외부 보상 API 성공 이력을 저장한다.
 - [x] `event.supplier_id`는 현재 위드 DB 기준 값을 사용한다.
@@ -64,6 +65,6 @@
 - [x] 제공된 원본 DDL의 `event_applicant` unique는 `(round_id, member_id)`였다.
 - [x] 후속 랜덤 보상 기능이 사용할 `event_round_prize`, `event_win` 경로가 준비되어 있다.
 - [x] 신규 환경용 schema draft는 FK를 두지 않는다.
-- [x] 신규 환경용 schema draft는 `event_applicant (event_id, member_id)`와 nullable `round_id`를 반영했다.
+- [x] 신규 환경용 schema draft는 `event_applicant (event_id, member_id)`와 `NOT NULL round_id`를 반영했다.
 - [x] 신규 환경용 schema draft는 `event_entry.event_id`, `event_entry.round_id`를 반영했다.
 - [x] 신규 환경용 schema draft는 `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 유지한다.

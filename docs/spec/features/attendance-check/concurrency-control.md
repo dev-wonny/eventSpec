@@ -29,7 +29,7 @@
 
 ```sql
 CREATE UNIQUE INDEX uq_event_entry_event_round_member
-    ON event_platform.event_entry (event_id, round_id, member_id)
+    ON event.event_entry (event_id, round_id, member_id)
     WHERE is_deleted = FALSE;
 ```
 

@@ -140,7 +140,6 @@ public AttendanceResult attend(AttendanceCommand command) {
 
 ### 추가 확인 필요
 
-- `event_applicant.round_id`가 있는 대상자와 없는 대상자가 함께 존재할 때 판정 우선순위
 - 외부 API 성공 후 DB 커밋 실패 시 보상 보정 또는 재처리 방식
 
 ## 예외별 응답 가이드

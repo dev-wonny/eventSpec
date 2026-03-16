@@ -77,9 +77,10 @@ Request Body는 없다.
 ### 동작 규칙
 
 - `event_applicant`는 실제 참여 기록이 아니라 참여 가능 대상자 풀이다.
-- `event_applicant`는 `(event_id, member_id)` unique로 동작하며, `round_id`는 특정 회차 대상일 때만 선택적으로 사용한다.
+- `event_applicant`는 `(event_id, member_id)` unique로 동작하며, `round_id`는 필수 기준 회차다.
 - 현재 프로젝트는 `event_applicant` 관리 API를 제공하지 않으므로 대상자 데이터는 SQL 또는 별도 admin 프로젝트에서 관리한다.
-- 출석 요청 시 서버는 `eventId + memberId` 기준 `event_applicant`를 조회하고, `round_id`가 있으면 요청 `roundId`와도 일치해야 한다.
+- 출석 요청 시 서버는 `eventId + memberId` 기준 `event_applicant`를 조회한다.
+- `event_applicant.round_id`는 이벤트 생성 시 함께 생성된 기준 회차를 저장하며, 기본 출석 조건으로 `요청 roundId`와 직접 비교하지 않는다.
 - FK는 두지 않으므로 서버는 `round.event_id == eventId`, `event_applicant.event_id == eventId`도 Service에서 검증해야 한다.
 - `event_round` 조회는 `roundId` 단독이 아니라 `roundId + eventId`로 함께 조회하는 방식을 권장한다.
 - `event_entry`는 실제 응모 이력을 append-only로 누적한다.
@@ -375,7 +376,7 @@ Request Body는 없다.
 ## API 기준 스키마 정합화 포인트
 
 - 신규 환경용 schema draft는 FK를 두지 않는다.
-- 신규 환경용 schema draft는 `event_applicant (event_id, member_id)`와 nullable `event_applicant.round_id`를 반영한다.
+- 신규 환경용 schema draft는 `event_applicant (event_id, member_id)`와 `NOT NULL event_applicant.round_id`를 반영한다.
   - 제공된 원본 DDL unique는 `(round_id, member_id)`였다.
 - 신규 환경용 schema draft는 `event_entry.event_id`, `event_entry.round_id` 추가와 `event_entry (event_id, round_id, member_id)` 최소 unique를 반영한다.
   - 출석 이벤트에서 매일 출석 여부를 체크해야 하기 때문이다.

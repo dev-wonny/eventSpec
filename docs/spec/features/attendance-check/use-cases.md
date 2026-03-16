@@ -22,7 +22,8 @@
 - 요청에는 `X-Member-Id`가 포함되어야 한다.
 - `event_applicant`는 실제 참여 기록이 아니라 참여 가능 대상자 풀로 해석해야 한다.
 - FK가 없으므로 서버는 `round.event_id == eventId`를 Service에서 반드시 검증해야 한다.
-- 출석 요청 시 서버는 `event_applicant`에서 `event_id + member_id` 기준 대상을 식별하고, `round_id`가 지정된 경우 요청 회차와도 정합해야 한다.
+- 출석 요청 시 서버는 `event_applicant`에서 `event_id + member_id` 기준 대상을 식별해야 한다.
+- `event_applicant.round_id`는 필수값이며, 이벤트 생성 시 함께 생성된 기준 회차를 가진다.
 - 출석체크는 회차당 보상 매핑이 최대 1개다.
 - 출석 성공 시 `event_entry`가 `event_id`, `round_id`와 함께 append-only로 저장된다.
 - 회차에 point 보상 매핑이 있으면 point 지급 성공 이력이 `event_win`에 남아야 한다.
@@ -63,7 +64,7 @@
 3. 시스템이 이벤트, 회차, 시간 조건을 검증한다.
 4. 시스템이 `round.event_id == event.id`인지 검증한다.
 5. 시스템이 `event_applicant`에서 해당 사용자의 참여 가능 대상 여부를 확인한다.
-6. `event_applicant.round_id`가 존재하면 요청 `roundId`와 일치하는지 검증한다.
+6. 시스템이 `event_applicant.round_id`가 비어 있지 않고 같은 이벤트의 기준 회차인지 확인한다.
 7. 시스템이 해당 회차 기준 중복 출석 여부를 확인한다.
 8. 시스템이 회차에 연결된 보상 매핑이 있는지 확인한다.
 9. 시스템이 `event_entry`를 저장한다.

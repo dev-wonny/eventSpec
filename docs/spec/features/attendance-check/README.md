@@ -31,7 +31,7 @@
 - 출석 단위는 `event_round`다.
 - 월간 출석 이벤트는 날짜 수만큼 `event_round`를 가진다.
 - `event_applicant`는 `(event_id, member_id)` 기준의 이벤트 참여 가능 대상자 풀이다.
-- `event_applicant.round_id`는 선택값이며 특정 회차 대상일 때만 사용한다.
+- `event_applicant.round_id`는 필수값이며, 이벤트 생성 시 함께 생성된 기준 회차를 가진다.
 - `event_entry`는 출석 성공 및 향후 랜덤 리워드 참여 이력을 append-only로 누적한다.
 - 출석 이벤트에서 `event_entry`는 일별 출석 여부 판단을 위해 `event_id`, `round_id`를 가져야 한다.
 - 출석체크는 회차당 보상 매핑이 `0..1`개다. 매핑이 없으면 무보상 출석으로 처리한다.
@@ -41,7 +41,7 @@
 - 이번 프로젝트는 외부용 API만 제공하고, admin API는 별도 프로젝트에서 담당한다.
 - 현재 외부 API는 `POST /entries`, `GET /events/{eventId}` 두 개만 제공한다.
 - 신규 환경용 schema draft에는 FK를 두지 않고, `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 반영했다.
-- 신규 환경용 schema draft에는 nullable `event_applicant.round_id`, `event_entry.event_id`, `event_entry.round_id`를 반영했다.
+- 신규 환경용 schema draft에는 `NOT NULL event_applicant.round_id`, `event_entry.event_id`, `event_entry.round_id`를 반영했다.
 
 ## 문서 사용 순서
 

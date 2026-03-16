@@ -30,17 +30,17 @@ WHERE id = :roundId
 
 | ID | 논리 개념 | 물리 객체 | 핵심 컬럼 | 관련 요구사항 | 확인 상태 | 메모 |
 | --- | --- | --- | --- | --- | --- | --- |
-| ATT-DATA-001 | 출석 이벤트 마스터 | `event_platform.event` | `id`, `event_type`, `supplier_id`, `start_at`, `end_at`, `is_active`, `is_visible`, `is_deleted`, `is_multiple_entry`, `is_auto_entry` | ATT-REQ-001 | DDL 반영 | 출석체크 이벤트는 `event_type = 'ATTENDANCE'`로 식별 |
-| ATT-DATA-002 | 출석 회차 | `event_platform.event_round` | `id`, `event_id`, `round_no`, `round_start_at`, `round_end_at`, `is_deleted` | ATT-REQ-001, ATT-REQ-003 | DDL 반영 | 월간 출석 이벤트는 날짜 수만큼 회차 생성 |
-| ATT-DATA-003 | 참여 가능 대상자 풀 | `event_platform.event_applicant` | `id`, `event_id`, `round_id`, `member_id`, `is_deleted` | ATT-REQ-002, ATT-REQ-005 | 업무 확정, schema draft 반영 | `(event_id, member_id)` 최소 unique, `round_id`는 선택값 |
-| ATT-DATA-004 | 참여 이력 | `event_platform.event_entry` | `id`, `applicant_id`, `event_id`, `round_id`, `member_id`, `applied_at`, `event_round_prize_id`, `is_winner`, `is_deleted` | ATT-REQ-002, ATT-REQ-004, ATT-REQ-005 | 업무 확정, schema draft 반영 | 출석 이벤트에서 일별 출석 여부 판단을 위해 `event_id`, `round_id`가 필요 |
+| ATT-DATA-001 | 출석 이벤트 마스터 | `event.event` | `id`, `event_type`, `supplier_id`, `start_at`, `end_at`, `is_active`, `is_visible`, `is_deleted`, `is_multiple_entry`, `is_auto_entry` | ATT-REQ-001 | DDL 반영 | 출석체크 이벤트는 `event_type = 'ATTENDANCE'`로 식별 |
+| ATT-DATA-002 | 출석 회차 | `event.event_round` | `id`, `event_id`, `round_no`, `round_start_at`, `round_end_at`, `is_deleted` | ATT-REQ-001, ATT-REQ-003 | DDL 반영 | 월간 출석 이벤트는 날짜 수만큼 회차 생성 |
+| ATT-DATA-003 | 참여 가능 대상자 풀 | `event.event_applicant` | `id`, `event_id`, `round_id`, `member_id`, `is_deleted` | ATT-REQ-002, ATT-REQ-005 | 업무 확정, schema draft 반영 | `(event_id, member_id)` 최소 unique, `round_id`는 `NOT NULL` 기준 회차 |
+| ATT-DATA-004 | 참여 이력 | `event.event_entry` | `id`, `applicant_id`, `event_id`, `round_id`, `member_id`, `applied_at`, `event_round_prize_id`, `is_winner`, `is_deleted` | ATT-REQ-002, ATT-REQ-004, ATT-REQ-005 | 업무 확정, schema draft 반영 | 출석 이벤트에서 일별 출석 여부 판단을 위해 `event_id`, `round_id`가 필요 |
 | ATT-DATA-005 | 회차 번호 유일성 | `uq_event_round_event_round_no` | `(event_id, round_no)` | ATT-REQ-001 | DDL 반영 | 이벤트 내 회차 번호 중복 방지 |
 | ATT-DATA-006 | applicant 고유성 요구사항 | 출석 spec 기준 | `(event_id, member_id)` | ATT-REQ-002 | 업무 확정, schema draft 반영 | 최소 unique 기준 |
 | ATT-DATA-007 | 출석 중복 판정 기준 | 출석 spec 기준 | `(event_id, round_id, member_id)` | ATT-REQ-003 | 업무 확정, schema draft 반영 | 비즈니스 기준이자 최소 DB unique 기준 |
-| ATT-DATA-008 | 보상 마스터 | `event_platform.prize` | `id`, `prize_name`, `reward_type`, `point_amount`, `coupon_id`, `is_active`, `is_deleted` | ATT-REQ-005 | DDL 반영 | 출석체크는 주로 `POINT` 유형 사용 |
-| ATT-DATA-009 | 회차별 보상 연결 | `event_platform.event_round_prize` | `id`, `round_id`, `prize_id`, `priority`, `daily_limit`, `total_limit`, `is_active`, `is_deleted` | ATT-REQ-005 | DDL 반영 | 출석체크는 회차당 `0..1`, 랜덤 리워드는 회차당 여러 prize 정책 가능 |
-| ATT-DATA-010 | 보상 결과 이력 | `event_platform.event_win` | `id`, `entry_id`, `round_id`, `event_id`, `member_id`, `event_round_prize_id`, `is_deleted` | ATT-REQ-002, ATT-REQ-004, ATT-REQ-005, ATT-REQ-006 | DDL 반영 | 실제 보상이 지급된 경우에만 생성 |
-| ATT-DATA-011 | 확률 기반 보상 확장 경로 | `event_platform.event_round_prize_probability` | `id`, `round_id`, `event_round_prize_id`, `probability`, `weight` | ATT-REQ-005 | DDL 반영 | 랜덤 리워드에서 여러 보상 중 하나를 계산할 때 사용 |
+| ATT-DATA-008 | 보상 마스터 | `event.prize` | `id`, `prize_name`, `reward_type`, `point_amount`, `coupon_id`, `is_active`, `is_deleted` | ATT-REQ-005 | DDL 반영 | 출석체크는 주로 `POINT` 유형 사용 |
+| ATT-DATA-009 | 회차별 보상 연결 | `event.event_round_prize` | `id`, `round_id`, `prize_id`, `priority`, `daily_limit`, `total_limit`, `is_active`, `is_deleted` | ATT-REQ-005 | DDL 반영 | 출석체크는 회차당 `0..1`, 랜덤 리워드는 회차당 여러 prize 정책 가능 |
+| ATT-DATA-010 | 보상 결과 이력 | `event.event_win` | `id`, `entry_id`, `round_id`, `event_id`, `member_id`, `event_round_prize_id`, `is_deleted` | ATT-REQ-002, ATT-REQ-004, ATT-REQ-005, ATT-REQ-006 | DDL 반영 | 실제 보상이 지급된 경우에만 생성 |
+| ATT-DATA-011 | 확률 기반 보상 확장 경로 | `event.event_round_prize_probability` | `id`, `round_id`, `event_round_prize_id`, `probability`, `weight` | ATT-REQ-005 | DDL 반영 | 랜덤 리워드에서 여러 보상 중 하나를 계산할 때 사용 |
 | ATT-DATA-012 | 감사/삭제 정보 | `event`, `event_round`, `event_applicant`, `event_entry`, `event_win`, `prize`, `event_round_prize` | `created_at`, `created_by`, `updated_at`, `updated_by`, `deleted_at`, `is_deleted` | ATT-REQ-005, ATT-REQ-006 | DDL 반영 | 전 테이블 공통 감사 패턴 |
 
 ## 현재 해석에서 중요한 포인트
@@ -51,7 +51,7 @@ WHERE id = :roundId
 - 현재 `supplier_id` 용도는 돌쇠네 자체 서비스 범위다.
 - `event_applicant`는 이벤트 참여 가능 대상자 풀이며 `(event_id, member_id)` 기준으로 식별한다.
 - 참여 조건이나 대상자 판정 결과를 사전에 적재해두고, 이벤트 기간 조건을 만족하는 상태에서 `event_applicant` 존재 여부로 참여 가능 여부를 빠르게 판정한다.
-- `event_applicant.round_id`는 선택값이며 특정 회차에만 참여 가능하도록 제한할 때 사용한다.
+- `event_applicant.round_id`는 필수값이며, 이벤트 생성 시 함께 생성된 기준 회차를 저장한다.
 - `event_entry`는 실제 참여 이력 테이블이며, 출석 성공과 향후 랜덤 리워드 참여 기록이 누적된다.
 - `event_entry.applicant_id`는 어떤 eligibility 레코드를 기준으로 참여했는지 연결한다.
 - 출석 이벤트에서 `event_entry`는 매일 출석 여부를 판정하기 위해 `event_id`, `round_id`를 가져야 한다.
@@ -60,7 +60,7 @@ WHERE id = :roundId
 - 신규 환경용 schema draft는 FK 없이 최소 unique만 둔다.
 - 최소 unique 대상은 `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`다.
 - 제공된 원본 DDL은 `event_entry.event_id`, `event_entry.round_id`가 없어 API 계약을 그대로 구현하기 어려웠다.
-- `event_applicant.event_id`는 값참조이며 FK가 아니므로 `round_id`와 `event_id` 정합성은 애플리케이션에서 보장해야 한다.
+- `event_applicant.event_id`, `event_applicant.round_id`는 값참조이므로 기준 회차와 이벤트 정합성은 애플리케이션에서 보장해야 한다.
 - 현재 프로젝트는 `event_applicant` 관리 API를 제공하지 않으므로 대상자 데이터는 SQL 또는 별도 admin 프로젝트에서 적재한다.
 - 출석 보상은 `event_round_prize -> prize` 연결로 관리하며, 출석체크에서는 회차당 보상 매핑을 `0..1`개만 둔다.
 - 출석 회차에 보상 매핑이 없으면 point를 지급하지 않으며 `event_win`도 생성되지 않는다.

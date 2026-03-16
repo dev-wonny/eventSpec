@@ -68,8 +68,10 @@ if (!round.getEventId().equals(eventId)) {
 
 - `event_applicant`에서 `(event_id, member_id)` 기준으로 참여 가능 대상자를 조회해야 한다.
 - 대상자가 없으면 참여 불가 오류로 종료한다.
-- `event_applicant.round_id`가 `NULL`이 아니면 요청 `roundId`와 일치해야 한다.
+- `event_applicant.round_id`는 `NULL`이면 안 된다.
 - `event_applicant.event_id`가 요청 `eventId`와 일치하는지도 검증해야 한다.
+- `event_applicant.round_id`는 같은 `eventId`에 속한 기준 회차여야 한다.
+- `event_applicant`는 이벤트 단위 eligibility이므로 `event_applicant.round_id == 요청 roundId`를 기본 출석 조건으로 사용하지 않는다.
 - `event_applicant`는 참여 조건이나 대상자 판정 결과를 사전 적재한 기준 테이블로 사용한다.
 - 이벤트 기간 조건이 유효하고 `event_applicant`가 확인되면 추가 참여 조건 조회는 생략할 수 있다.
 
@@ -112,7 +114,7 @@ if (!round.getEventId().equals(eventId)) {
 
 - `round.event_id == event.id`
 - `event_applicant.event_id == event.id`
-- `event_applicant.round_id == NULL OR event_applicant.round_id == round.id`
+- `event_applicant.round_id`가 비어 있지 않고 같은 `event_id`의 회차를 가리키는지
 - `event_win.entry_id == event_entry.id`
 - 출석체크 회차당 active `event_round_prize = 0..1`
 - 출석 회차 보상은 `POINT`만 허용

@@ -23,7 +23,8 @@
 - `event_applicant`는 실제 참여 기록이 아니라 이벤트 참여 가능 대상자 풀이다.
 - `event_applicant`는 참여 조건이나 대상자 판정 결과를 사전에 적재해두는 테이블로 사용한다.
 - 기본 식별 기준은 `(event_id, member_id)`이며, 신규 환경용 schema draft에는 이 최소 unique를 반영한다.
-- `event_applicant.round_id`는 선택값이며 특정 회차에만 참여 가능하도록 제한할 때 사용한다.
+- `event_applicant.round_id`는 필수값이다.
+- 이벤트 생성 시 `event_round`는 최소 1개 생성되므로, `event_applicant`는 기준 회차의 `round_id`를 항상 가진다.
 - 출석 요청 시 서버는 `event_applicant`를 기준으로 참여 가능 대상 여부를 검증해야 한다.
 - 이벤트가 기간 조건을 만족하고 `event_applicant`에 사용자가 존재하면, 참여 조건을 다시 계산하거나 외부 조회하지 않고 참여 가능자로 처리할 수 있다.
 - 현재 프로젝트는 `event_applicant` 관리 API를 제공하지 않으므로 대상자 적재는 SQL 또는 별도 admin 프로젝트에서 관리한다.
@@ -51,7 +52,8 @@
 - `GET /events/{eventId}`에서는 `X-Member-Id`가 선택이다.
 - 요청에 `event_id`와 `round_id`가 함께 들어오면 `event_round.event_id`와 일치하는지 확인해야 한다.
 - FK를 두지 않으므로 `round.event_id == event.id`, `event_applicant.event_id == event.id`, `event_win.entry_id == event_entry.id` 같은 참조 정합성은 애플리케이션에서 검증해야 한다.
-- `event_applicant.round_id`가 `NULL`이 아니면 요청 `round_id`와 일치해야 한다.
+- `event_applicant.round_id`는 `NULL`이 아니어야 하며, 같은 `event_id`에 속한 기준 회차여야 한다.
+- `event_applicant`는 이벤트 단위 eligibility이므로 `event_applicant.round_id == 요청 round_id`를 기본 규칙으로 사용하지 않는다.
 - 현재 참여자 식별은 `X-Member-Id`를 사용한다.
 
 ### ATT-RULE-007 동시성 제어
@@ -128,7 +130,7 @@
 
 ## DDL 기반 구현 시사점
 
-- 출석 spec 기준으로는 `event_applicant`에 `(event_id, member_id)` 최소 unique와 nullable `round_id`, `event_entry`에 `event_id`, `round_id`, `member_id` 기반 조회 경로가 필요하다.
+- 출석 spec 기준으로는 `event_applicant`에 `(event_id, member_id)` 최소 unique와 `NOT NULL round_id`, `event_entry`에 `event_id`, `round_id`, `member_id` 기반 조회 경로가 필요하다.
 - 신규 환경용 schema draft에는 FK 없이 `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 반영한다.
 - 현재 DDL만으로는 `ATTENDANCE` 이벤트의 회차당 active `event_round_prize`를 1개로 강제하기 어렵기 때문에 애플리케이션 또는 운영 검증이 필요하다.
 - `event_round_prize`가 `prize`를 참조하므로, 보상 이력 안정성을 확보하려면 `prize` 변경 금지 원칙이 중요하다.

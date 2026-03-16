@@ -14,7 +14,7 @@
 | ATT-TEST-006 | 비활성/삭제/기간 외 이벤트 또는 회차 요청 | 출석 불가 응답을 반환한다 | ATT-RULE-002 |
 | ATT-TEST-007 | 동일 `event_id + round_id + member_id` 조건의 동시 출석 요청 2건 이상 발생 | Service 중복 검증과 `uq_event_entry_event_round_member` unique에 의해 최종 유효 출석은 한 건만 남고, 나머지는 이미 출석 오류로 정리된다 | ATT-RULE-005, ATT-RULE-007 |
 | ATT-TEST-008 | `GET /events/{eventId}`를 `X-Member-Id`와 함께 호출 | 각 회차의 `ATTENDED / MISSED / TODAY / FUTURE` 상태와 보상 이력이 일관되게 반환된다 | ATT-RULE-006, ATT-RULE-008, ATT-RULE-009, ATT-RULE-014 |
-| ATT-TEST-009 | `event_applicant.round_id`가 지정된 사용자의 출석 요청 | 요청 `roundId`가 일치할 때만 출석이 허용되고, 불일치하면 거절된다 | ATT-RULE-003, ATT-RULE-006 |
+| ATT-TEST-009 | `event_applicant.round_id`가 저장된 사용자의 출석 요청 | applicant 조회는 `event_id + member_id` 기준으로 동작하고, `round_id`는 비어 있지 않은 기준 회차 값으로 유지된다 | ATT-RULE-003, ATT-RULE-006 |
 | ATT-TEST-010 | 월간 이벤트의 마지막 날짜 회차 출석 요청 | 올바른 `event_round`가 선택되고 출석이 저장된다 | ATT-RULE-001, ATT-RULE-002 |
 | ATT-TEST-011 | 외부 point API 실패 | `event_entry`, `event_win`이 모두 롤백되고 출석 실패 응답을 반환한다 | ATT-RULE-009, ATT-RULE-012 |
 | ATT-TEST-012 | 외부 point API 무응답 또는 타임아웃 | `event_entry`, `event_win`이 모두 롤백되고 프론트에 출석체크 불가 오류를 반환한다 | ATT-RULE-012, ATT-RULE-013 |
