@@ -8,7 +8,7 @@
 
 현재 1차 개발 범위는 출석체크이며, 랜덤 게임은 문서 자리만 먼저 확보한다.
 
-추가 입력물이 들어오면 아래 문서를 우선 갱신한다.
+새 입력물이 들어오면 아래 문서를 우선 갱신한다.
 
 - 반영 완료 DDL 기준 데이터 해석: `docs/spec/features/attendance-check/data-spec.md`
-- 제공 예정 API 목록 반영: `docs/spec/features/attendance-check/api-spec.md`
+- 확정된 외부 API 계약 반영: `docs/spec/features/attendance-check/api-spec.md`

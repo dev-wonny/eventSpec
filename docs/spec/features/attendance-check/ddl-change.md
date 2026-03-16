@@ -1,0 +1,165 @@
+# DDL Change Draft
+
+이 문서는 출석체크 spec에서 확정된 `event_applicant`/`event_entry` 핵심 제약을 PostgreSQL DDL에 반영하기 위한 변경안을 정리한다. 현재는 신규 환경 기준이므로 최종 형태의 전체 DDL을 새로 만드는 방식을 우선 권장한다.
+
+## 이번 변경의 목적
+
+- 출석 이벤트는 `event_round` 기준으로 매일 출석 여부를 판정해야 한다.
+- `event_applicant`는 실제 참여 기록이 아니라 이벤트 참여 가능 대상자 풀이어야 한다.
+- `event_applicant.round_id`는 특정 회차 대상자를 표현할 수 있도록 선택값이어야 한다.
+- 출석체크는 회차당 보상 매핑이 `0..1`개여야 하고, 보상 매핑이 없으면 무보상 출석을 허용해야 한다.
+- 따라서 `event_entry`가 어떤 회차에 대한 참여 이력인지 직접 알아야 한다.
+- 동일 참여자는 동일 회차에 대해 한 번만 유효한 출석 이력을 가져야 한다.
+
+## 이번 변경 범위
+
+- `event_applicant (event_id, member_id)` unique 추가
+- `event_applicant.round_id`를 nullable로 조정
+- `event_entry`에 `event_id` 추가
+- `event_entry`에 `round_id` 추가
+- `event_entry (event_id, round_id, member_id)` 조회 index 추가
+- `event_entry.round_id -> event_round.id` FK 추가
+- 조회 성능용 index 추가
+
+## 신규 환경 기준 권장안
+
+- 신규 환경이면 `ALTER TABLE`보다 전체 스키마를 최종 형태로 한 번에 생성하는 편이 단순하다.
+- 전체 SQL 초안은 `event-platform-schema-draft.sql`에 정리한다.
+- 이 문서는 어떤 변경이 들어가는지 설명하는 보조 문서로 유지한다.
+
+## 최종 목표 구조
+
+### `event_applicant` 최종 정의
+
+```sql
+CREATE TABLE event_platform.event_applicant (
+    id         BIGINT      GENERATED ALWAYS AS IDENTITY,
+    event_id   BIGINT      NOT NULL,
+    round_id   BIGINT,
+    member_id  BIGINT      NOT NULL,
+    is_deleted BOOLEAN     NOT NULL DEFAULT FALSE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by BIGINT      NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_by BIGINT      NOT NULL,
+    deleted_at TIMESTAMPTZ,
+
+    CONSTRAINT pk_event_applicant PRIMARY KEY (id),
+    CONSTRAINT fk_event_applicant_round FOREIGN KEY (round_id)
+        REFERENCES event_platform.event_round(id)
+);
+
+COMMENT ON TABLE  event_platform.event_applicant IS '참여 가능 대상자 기준';
+COMMENT ON COLUMN event_platform.event_applicant.event_id IS '이벤트 식별자 (eligibility 기준값)';
+COMMENT ON COLUMN event_platform.event_applicant.round_id IS '회차 식별자 (선택, 특정 회차 대상일 때만 사용)';
+COMMENT ON COLUMN event_platform.event_applicant.member_id IS '회원 식별자';
+```
+
+### `event_entry` 최종 정의
+
+```sql
+CREATE TABLE event_platform.event_entry (
+    id                   BIGINT      GENERATED ALWAYS AS IDENTITY,
+    applicant_id         BIGINT      NOT NULL,
+    event_id             BIGINT      NOT NULL,
+    round_id             BIGINT      NOT NULL,
+    member_id            BIGINT      NOT NULL,
+    applied_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    event_round_prize_id BIGINT,
+    is_winner            BOOLEAN     NOT NULL DEFAULT FALSE,
+    is_deleted           BOOLEAN     NOT NULL DEFAULT FALSE,
+
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by           BIGINT      NOT NULL,
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_by           BIGINT      NOT NULL,
+    deleted_at           TIMESTAMPTZ,
+
+    CONSTRAINT pk_event_entry PRIMARY KEY (id),
+    CONSTRAINT fk_event_entry_applicant FOREIGN KEY (applicant_id)
+        REFERENCES event_platform.event_applicant(id),
+    CONSTRAINT fk_event_entry_round FOREIGN KEY (round_id)
+        REFERENCES event_platform.event_round(id)
+);
+
+COMMENT ON TABLE  event_platform.event_entry IS '응모 행위 이력';
+COMMENT ON COLUMN event_platform.event_entry.applicant_id IS '참여자 식별자';
+COMMENT ON COLUMN event_platform.event_entry.event_id IS '이벤트 식별자 (조회/중복체크용 값참조)';
+COMMENT ON COLUMN event_platform.event_entry.round_id IS '출석/응모 회차 식별자';
+COMMENT ON COLUMN event_platform.event_entry.member_id IS '회원 식별자';
+COMMENT ON COLUMN event_platform.event_entry.applied_at IS '응모 일시';
+COMMENT ON COLUMN event_platform.event_entry.event_round_prize_id IS '당첨 경품 식별자 (즉시당첨 시)';
+COMMENT ON COLUMN event_platform.event_entry.is_winner IS '당첨 여부 보조값 (SoT: event_win)';
+COMMENT ON COLUMN event_platform.event_entry.is_deleted IS '논리 삭제 여부';
+COMMENT ON COLUMN event_platform.event_entry.created_at IS '등록 일시';
+COMMENT ON COLUMN event_platform.event_entry.created_by IS '등록자 식별자';
+COMMENT ON COLUMN event_platform.event_entry.updated_at IS '수정 일시';
+COMMENT ON COLUMN event_platform.event_entry.updated_by IS '수정자 식별자';
+COMMENT ON COLUMN event_platform.event_entry.deleted_at IS '삭제 일시';
+
+CREATE INDEX idx_event_entry_event_round_member_id
+    ON event_platform.event_entry (event_id, round_id, member_id)
+    WHERE is_deleted = FALSE;
+```
+
+### `event_applicant` 최종 unique
+
+```sql
+CREATE UNIQUE INDEX uq_event_applicant_event_member_id
+    ON event_platform.event_applicant (event_id, member_id)
+    WHERE is_deleted = FALSE;
+```
+
+## 운영 중 스키마 변경용 참고 ALTER 안
+
+신규 환경에서는 필요 없지만, 기존 운영 DB에 반영해야 할 경우를 위한 참고안이다.
+
+### 1. 컬럼 추가와 FK 추가
+
+```sql
+ALTER TABLE event_platform.event_entry
+    ADD COLUMN event_id BIGINT;
+
+COMMENT ON COLUMN event_platform.event_entry.event_id IS '이벤트 식별자 (조회/중복체크용 값참조)';
+
+ALTER TABLE event_platform.event_entry
+    ADD COLUMN round_id BIGINT;
+
+COMMENT ON COLUMN event_platform.event_entry.round_id IS '출석/응모 회차 식별자';
+
+ALTER TABLE event_platform.event_entry
+    ADD CONSTRAINT fk_event_entry_round FOREIGN KEY (round_id)
+        REFERENCES event_platform.event_round(id);
+```
+
+### 2. 기존 데이터 backfill
+
+```sql
+-- 기존 데이터가 있다면 event_id, round_id를 채운 뒤 다음 단계로 진행한다.
+-- 현재 출석 spec 기준으로는 기존 entry가 어떤 event/round에 속하는지 확정 가능한
+-- backfill 규칙이 먼저 준비되어야 한다.
+```
+
+### 3. 필수값과 unique 반영
+
+```sql
+ALTER TABLE event_platform.event_entry
+    ALTER COLUMN event_id SET NOT NULL;
+
+ALTER TABLE event_platform.event_entry
+    ALTER COLUMN round_id SET NOT NULL;
+
+CREATE INDEX idx_event_entry_event_round_member_id
+    ON event_platform.event_entry (event_id, round_id, member_id)
+    WHERE is_deleted = FALSE;
+```
+
+## 적용 메모
+
+- 현재 조건은 신규 환경이므로 전체 스키마를 최종 목표 구조로 바로 생성하면 된다.
+- 기존 데이터가 이미 있다면 `event_id`, `round_id` backfill 전략 없이 `NOT NULL`을 바로 추가하면 안 된다.
+- `event_applicant`는 eligibility 관리용이며 실제 참여 이력은 `event_entry`에만 남긴다.
+- 출석 중복의 비즈니스 판정은 `event_id + round_id + member_id` 기준으로 애플리케이션에서 수행한다.
+- 출석체크의 회차당 active `event_round_prize = 0..1` 제약은 현재 스키마만으로 직접 강제되지 않으므로 애플리케이션 또는 운영 검증이 필요하다.
+- 랜덤 리워드는 같은 회차에 여러 `event_round_prize`와 확률 정책을 둘 수 있다.
