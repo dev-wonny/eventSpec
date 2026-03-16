@@ -24,8 +24,8 @@
 
 | 분류 | 예시 | 외부 API 호출 여부 | rollback 대상 | 프론트 응답 방향 |
 | --- | --- | --- | --- | --- |
-| Validation 예외 | 이벤트 없음, 회차 없음, 이벤트-회차 불일치, `X-Member-Id` 누락 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | 요청 오류/비즈니스 오류 |
-| Business 예외 | 같은 `event_id + round_id + member_id` 중복 응모, 출석 불가 시간 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | 요청 거절 |
+| Validation 예외 | DTO 제약 위반, `X-Member-Id` 누락, path/body 타입 오류 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | `INVALID_REQUEST` |
+| Business 예외 | 이벤트 없음, 회차 없음, 이벤트-회차 불일치, 같은 `event_id + round_id + member_id` 중복 응모, 출석 불가 시간 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | 비즈니스 오류 |
 | External 실패 | point API 실패 응답 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | 출석 실패 |
 | External timeout | point API 무응답, 타임아웃 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | 현재 출석체크 불가 |
 | Persistence 예외 | 최소 unique 충돌, DB 저장 실패 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 또는 충돌 |
@@ -37,6 +37,9 @@
 
 - Controller에서는 넓은 `try-catch`를 두지 않는다.
 - 서비스가 던진 도메인 예외를 전역 예외 처리기에서 HTTP 응답으로 변환한다.
+- `X-Member-Id`는 interceptor가 아니라 controller `@RequestHeader`로 바인딩한다.
+- `POST /entries`는 `required = true`, `GET /events/{eventId}`는 `required = false`로 처리한다.
+- 헤더 누락은 `MissingRequestHeaderException`으로 전역 예외 처리기에서 `INVALID_REQUEST`로 변환한다.
 
 ### Service
 
@@ -146,7 +149,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 
 | 예외 | 내부 의미 | 사용자 응답 방향 |
 | --- | --- | --- |
-| `AttendanceValidationException` | 잘못된 요청 | 잘못된 요청 |
+| Validation 예외 | 잘못된 요청 | `INVALID_REQUEST` |
 | `AttendanceDuplicateException` | 같은 `event_id + round_id + member_id` 기준 이미 출석 완료 | 이미 출석했습니다 |
 | `AttendanceUnavailableException` | 외부 API 무응답 또는 타임아웃 | 현재 출석체크를 진행할 수 없음 |
 | `AttendanceRewardFailedException` | 외부 API 실패 응답 | 출석 처리 실패 |
@@ -161,7 +164,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 - 외부 API 결과: 응답 코드, 타임아웃 여부, 추적 가능한 요청 ID
 - rollback 원인: 예외 타입, 실패 단계
 - 로그는 구조화된 형태로 남기고 ELK에서 조회 가능해야 한다.
-- `traceId`로 API 요청부터 point API 호출 실패까지 한 흐름으로 추적 가능해야 한다.
+- `requestId`로 API 요청부터 point API 호출 실패까지 한 흐름으로 추적 가능해야 한다.
 - 민감한 개인정보나 보상 원문 payload 전체는 로그에 남기지 않는다.
 
 ## 현재 구조의 숨은 리스크

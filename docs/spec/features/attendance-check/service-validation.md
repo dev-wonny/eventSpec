@@ -33,7 +33,8 @@
 ### ATT-SVC-001 요청 필수값 검증
 
 - `eventId`, `roundId`, `X-Member-Id`는 출석 요청에서 필수다.
-- 값이 없거나 형식이 맞지 않으면 즉시 validation 오류로 종료한다.
+- `X-Member-Id` 누락이나 타입 오류는 controller `@RequestHeader` 바인딩과 전역 예외 처리기에서 `INVALID_REQUEST`로 종료한다.
+- Service는 필수 요청값이 정상 바인딩되었다는 전제에서 비즈니스 검증을 수행한다.
 
 ### ATT-SVC-002 이벤트 상태 검증
 

@@ -9,8 +9,8 @@
 | ATT-TEST-001 | 보상 매핑이 있는 회차의 첫 출석 요청 | eligibility 검증 후 `event_entry` 저장, 외부 point API 성공, `event_win` 저장 순서로 커밋된다 | ATT-RULE-002, ATT-RULE-003, ATT-RULE-004, ATT-RULE-009, ATT-RULE-012 |
 | ATT-TEST-002 | 보상 매핑이 있는 다른 날짜 회차 재출석 요청 | 같은 `event_applicant` eligibility를 기준으로 `event_entry` 저장 후 외부 point API 성공 시 `event_win`이 추가 저장된다 | ATT-RULE-001, ATT-RULE-003, ATT-RULE-004, ATT-RULE-009, ATT-RULE-012 |
 | ATT-TEST-003 | 같은 `event_id + round_id + member_id`로 재응모 요청 | `이미 출석했습니다`를 반환하고 추가 `event_entry`가 생기지 않는다 | ATT-RULE-005 |
-| ATT-TEST-004 | 존재하지 않는 이벤트 또는 회차로 요청 | 유효성 오류를 반환한다 | ATT-RULE-006 |
-| ATT-TEST-005 | 이벤트와 회차가 서로 맞지 않는 요청 | 정합성 오류를 반환한다 | ATT-RULE-006 |
+| ATT-TEST-004 | 존재하지 않는 이벤트 또는 회차로 요청 | business 오류를 반환한다 | ATT-RULE-006 |
+| ATT-TEST-005 | 이벤트와 회차가 서로 맞지 않는 요청 | business 오류를 반환한다 | ATT-RULE-006 |
 | ATT-TEST-006 | 비활성/삭제/기간 외 이벤트 또는 회차 요청 | 출석 불가 응답을 반환한다 | ATT-RULE-002 |
 | ATT-TEST-007 | 동일 `event_id + round_id + member_id` 조건의 동시 출석 요청 2건 이상 발생 | Service 중복 검증과 `uq_event_entry_event_round_member` unique에 의해 최종 유효 출석은 한 건만 남고, 나머지는 이미 출석 오류로 정리된다 | ATT-RULE-005, ATT-RULE-007 |
 | ATT-TEST-008 | `GET /events/{eventId}`를 `X-Member-Id`와 함께 호출 | 각 회차의 `ATTENDED / MISSED / TODAY / FUTURE` 상태와 보상 이력이 일관되게 반환된다 | ATT-RULE-006, ATT-RULE-008, ATT-RULE-009, ATT-RULE-014 |
@@ -25,7 +25,7 @@
 | ATT-TEST-024 | 출석 회차에 active `event_round_prize`가 2개 이상 설정된 경우 | 운영/검증 오류로 처리하고 출석을 진행하지 않는다 | ATT-RULE-009, ATT-RULE-010 |
 | ATT-TEST-022 | 대상자 풀이 적용된 이벤트에서 applicant가 없는 사용자의 출석 요청 | eligibility 오류를 반환하고 `event_entry`, `event_win`이 저장되지 않는다 | ATT-RULE-003, ATT-RULE-006 |
 | ATT-TEST-020 | `GET /events/{eventId}`를 `X-Member-Id` 없이 호출 | 전체 회차 기본 정보만 반환되고 `status = null`, `win = null`이다 | ATT-RULE-014 |
-| ATT-TEST-021 | `POST /entries`를 `X-Member-Id` 없이 호출 | validation 오류를 반환한다 | ATT-RULE-006 |
+| ATT-TEST-021 | `POST /entries`를 `X-Member-Id` 없이 호출 | `INVALID_REQUEST`와 헤더 오류 메시지를 반환한다 | ATT-RULE-006 |
 
 ## 비기능 시나리오
 

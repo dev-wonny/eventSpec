@@ -32,7 +32,6 @@ com.event
 ├── EventApplication
 ├── common
 │   ├── logging
-│   ├── tracing
 │   └── util
 ├── presentation
 │   ├── controller
@@ -57,7 +56,13 @@ com.event
 │   ├── exception
 │   │   ├── ResponseCode
 │   │   ├── BusinessException
-│   │   └── ValidationCode
+│   │   └── code
+│   │       ├── CommonCode
+│   │       ├── EventCode
+│   │       ├── EntryCode
+│   │       ├── AttendanceCode
+│   │       ├── PrizeCode
+│   │       └── RewardCode
 │   ├── service
 │   ├── value
 │   └── util
@@ -69,7 +74,6 @@ com.event
     │       ├── config
     │       └── dto
     ├── filter
-    ├── interceptor
     ├── logging
     ├── persistence
     │   └── database
@@ -132,7 +136,7 @@ com.event
 - `EventEntryEntity`
 - `EventWinEntity`
 - `AttendanceEntryPolicy`
-- `ResponseCode`, `BusinessException`, `ValidationCode`
+- `ResponseCode`, `BusinessException`, `CommonCode`, `EventCode`, `EntryCode`
 
 ### `infrastructure`
 
@@ -148,9 +152,11 @@ com.event
 - `EventEntryRepositoryImpl`
 - `AttendanceEventQueryBuilder`
 - `PointClient`
-- `TraceIdFilter`
+- `RequestIdFilter`
 - `RequestLoggingFilter`
 - `ActuatorConfig`
+
+요청 식별은 `traceId`가 아니라 `requestId` 하나만 사용한다. `RequestIdFilter`는 `X-Request-Id`를 읽거나 생성해 MDC `requestId`에 넣고, 응답 헤더에도 같은 값을 내려주는 역할을 맡는다.
 
 ## 출석체크 기준 패키지 매핑
 
@@ -171,7 +177,7 @@ com.event
 - `AttendanceRoundResponse`
 - `AttendanceSummaryResponse`
 
-현재 출석 API는 Request Body가 없으므로 request DTO는 당장 필수가 아니다.
+현재 출석 API는 Request Body가 없으므로 request DTO는 당장 필수가 아니다. 헤더는 controller `@RequestHeader`로 바인딩하고, validation 메시지는 DTO annotation message를 직접 사용한다.
 
 ### `application.port.input`
 
@@ -313,7 +319,7 @@ domain -> (가능하면 다른 계층을 모름)
 - 그러나 초기 버전에서는 팀이 익숙한 전역 레이어 구조가 온보딩과 유지보수에 유리하다.
 - 에러 코드와 비즈니스 예외는 `domain.exception`에서 관리한다.
 - 공통 응답 포맷과 전역 예외 변환은 `presentation.dto.response`, `presentation.exception`에서 관리한다.
-- 공통 로그/추적 코드는 `common.logging`, `common.tracing`, `infrastructure.logging`에 분리한다.
+- 공통 로그 관련 코드는 `common.logging`과 `infrastructure.logging`, 요청 식별은 `infrastructure.filter.RequestIdFilter`로 분리한다.
 
 ## 나중에 하이브리드 구조로 전환하는 기준
 
@@ -331,5 +337,5 @@ domain -> (가능하면 다른 계층을 모름)
 4. 응답 포맷은 `presentation.dto.response`에서 끝낸다.
 5. QueryDSL 검색/조합 로직은 `infrastructure.persistence.database.builder`로 분리한다.
 6. 외부 point API DTO는 `infrastructure.external.point.dto`로 격리한다.
-7. 로그/추적 필터는 `infrastructure.logging`, `infrastructure.filter`, `common.tracing` 조합으로 분리한다.
+7. 로그 필터는 `infrastructure.logging`, 요청 식별 필터는 `infrastructure.filter.RequestIdFilter`로 분리한다.
 8. Actuator 운영 설정은 `infrastructure.monitoring`으로 분리한다.

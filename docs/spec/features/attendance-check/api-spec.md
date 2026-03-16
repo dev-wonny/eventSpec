@@ -15,6 +15,8 @@
 
 모든 응답은 아래 공통 형태를 따른다.
 
+- 응답 body의 `code`는 `CommonCode` 기준으로 반환한다.
+
 ```json
 {
   "code": "STRING_CODE",
@@ -29,6 +31,7 @@
 - `X-Member-Id: {memberId}`
 - 현재는 신뢰된 호출 주체가 호출한다는 전제로 `X-Member-Id`를 우선 사용한다.
 - JWT, Spring Security는 현재 범위에 포함하지 않는다.
+- `X-Member-Id`는 interceptor가 아니라 controller `@RequestHeader`로 처리한다.
 
 ### memberId
 
@@ -74,6 +77,19 @@
 
 Request Body는 없다.
 
+Controller 권장 시그니처:
+
+```java
+@PostMapping("/event/v1/events/{eventId}/rounds/{roundId}/entries")
+public BaseResponse<EventEntryResponse> enterEvent(
+        @PathVariable Long eventId,
+        @PathVariable Long roundId,
+        @RequestHeader("X-Member-Id") Long memberId
+) {
+    ...
+}
+```
+
 ### 동작 규칙
 
 - `event_applicant`는 실제 참여 기록이 아니라 참여 가능 대상자 풀이다.
@@ -97,14 +113,14 @@ Request Body는 없다.
 
 ### 성공 응답
 
-- `code`: `ENTY_APPLIED`
+- `code`: `SUCCESS`
 - `message`: 출석 이벤트는 `출석 체크가 완료되었습니다.`
 
 #### 출석체크형 이벤트 예시
 
 ```json
 {
-  "code": "ENTY_APPLIED",
+  "code": "SUCCESS",
   "message": "출석 체크가 완료되었습니다.",
   "timestamp": "2026-02-02T10:00:00Z",
   "data": {
@@ -130,7 +146,7 @@ Request Body는 없다.
 
 ```json
 {
-  "code": "ENTY_APPLIED",
+  "code": "SUCCESS",
   "message": "출석 체크가 완료되었습니다.",
   "timestamp": "2026-02-03T10:00:00Z",
   "data": {
@@ -168,11 +184,14 @@ Request Body는 없다.
 
 ### 오류 방향
 
+- `X-Member-Id` 누락
+  - `code`: `INVALID_REQUEST`
+  - `message`: `잘못된 요청입니다.`
+  - `data` 예시: `{ "X-Member-Id": "X-Member-Id 헤더는 필수입니다." }`
 - 이벤트 없음
 - 회차 없음
 - 이벤트-회차 불일치
 - 참여 가능 대상 아님
-- `X-Member-Id` 누락
 - 이미 출석함
   - 프론트 메시지: `이미 출석했습니다`
 - 보상 매핑이 있는 회차에서 외부 point API 실패
@@ -191,6 +210,18 @@ Request Body는 없다.
 | --- | --- | --- | --- |
 | `eventId` | `Long` | Y | 이벤트 식별자 |
 
+Controller 권장 시그니처:
+
+```java
+@GetMapping("/event/v1/events/{eventId}")
+public BaseResponse<EventDetailResponse> getEvent(
+        @PathVariable Long eventId,
+        @RequestHeader(value = "X-Member-Id", required = false) Long memberId
+) {
+    ...
+}
+```
+
 ### 동작 규칙
 
 - `eventType = ATTENDANCE`일 때 전체 회차 목록과 출석 상태를 반환한다.
@@ -202,14 +233,14 @@ Request Body는 없다.
 
 ### 성공 응답
 
-- `code`: `EVT_OK`
+- `code`: `SUCCESS`
 - `message`: `이벤트를 조회했습니다.`
 
 #### 출석 이벤트 예시
 
 ```json
 {
-  "code": "EVT_OK",
+  "code": "SUCCESS",
   "message": "이벤트를 조회했습니다.",
   "timestamp": "2026-02-09T10:00:00Z",
   "data": {
@@ -267,7 +298,7 @@ Request Body는 없다.
 
 ```json
 {
-  "code": "ENTY_APPLIED",
+  "code": "SUCCESS",
   "message": "응모가 완료되었습니다.",
   "timestamp": "2026-03-09T08:00:00Z",
   "data": {
@@ -287,7 +318,7 @@ Request Body는 없다.
 
 ```json
 {
-  "code": "ENTY_APPLIED",
+  "code": "SUCCESS",
   "message": "응모가 완료되었습니다.",
   "timestamp": "2026-03-09T08:00:00Z",
   "data": {
@@ -303,7 +334,7 @@ Request Body는 없다.
 
 ```json
 {
-  "code": "ENTY_APPLIED",
+  "code": "SUCCESS",
   "message": "응모가 완료되었습니다.",
   "timestamp": "2026-03-09T08:00:00Z",
   "data": {
@@ -319,7 +350,7 @@ Request Body는 없다.
 
 ```json
 {
-  "code": "EVT_OK",
+  "code": "SUCCESS",
   "message": "이벤트를 조회했습니다.",
   "timestamp": "2026-03-09T08:00:00Z",
   "data": {

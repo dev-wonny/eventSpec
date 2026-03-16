@@ -1,11 +1,11 @@
 # Logging And Observability Spec
 
-이 문서는 Event Platform Backend의 로그 수집, 추적, ELK 연동 기준을 정의한다. 이번 개발 범위에는 애플리케이션 로그를 ELK로 적재하고 조회 가능한 상태로 만드는 작업이 포함된다.
+이 문서는 Event Platform Backend의 로그 수집, 요청 추적, ELK 연동 기준을 정의한다. 이번 개발 범위에는 애플리케이션 로그를 ELK로 적재하고 조회 가능한 상태로 만드는 작업이 포함된다.
 
 ## 1. Purpose
 
 - 애플리케이션 로그 표준을 정한다.
-- `traceId` 기반 요청 추적 기준을 정한다.
+- `requestId` 기반 요청 추적 기준을 정한다.
 - ELK 적재 대상과 필수 필드를 정의한다.
 - 운영 장애 분석과 비즈니스 이슈 추적 기준을 통일한다.
 
@@ -19,8 +19,9 @@
 ## 3. 운영 원칙
 
 - 로그는 사람이 읽는 문자열 위주가 아니라 구조화된 JSON 로그를 기본으로 한다.
-- 모든 요청은 `traceId`를 가진다.
-- 요청 단위 상관관계 식별은 `traceId`로 한다.
+- 모든 요청은 `requestId`를 가진다.
+- 요청 단위 상관관계 식별은 `requestId`로 한다.
+- 이번 범위에서는 `traceId` 개념을 별도로 도입하지 않는다.
 - 비즈니스 식별자는 가능한 경우 함께 기록한다.
 - 민감정보와 전체 payload는 로그에 남기지 않는다.
 - 운영 분석은 Kibana 조회를 기본 경로로 한다.
@@ -36,7 +37,7 @@
 | `level` | 로그 레벨 |
 | `service` | 서비스명 (`ds-event-backend`) |
 | `environment` | `dev`, `stg`, `prod` 등 배포 환경 |
-| `traceId` | 요청 추적 식별자 |
+| `requestId` | 요청 추적 식별자 |
 | `logger` | logger 이름 |
 | `message` | 로그 메시지 |
 
@@ -81,13 +82,13 @@
 - 애플리케이션 로그는 구조화된 JSON 형태로 출력한다.
 - Spring Boot에서는 `logstash-logback-encoder`를 사용해 JSON 로그를 출력한다.
 - 수집 에이전트 구성 방식은 인프라 표준을 따르되, 애플리케이션은 ELK 적재를 전제로 로그 포맷을 맞춘다.
-- Kibana에서 `traceId`, `memberId`, `eventId`, `roundId` 기준 조회가 가능해야 한다.
+- Kibana에서 `requestId`, `memberId`, `eventId`, `roundId` 기준 조회가 가능해야 한다.
 - 운영자는 중복 출석, point 지급 실패, 외부 API 타임아웃을 Kibana에서 검색할 수 있어야 한다.
 - ECS 환경에서는 파일 로그보다 stdout/stderr 스트림 수집을 우선 기준으로 본다.
 
 ## 8. 코드 구조 권장
 
-로그/추적 관련 코드는 아래 패키지에 둔다.
+로그/요청 식별 관련 코드는 아래 패키지에 둔다.
 
 ```text
 com.event
@@ -95,24 +96,80 @@ com.event
 │   ├── logging
 │   │   ├── LogFieldNames
 │   │   └── LogContextKeys
-│   └── tracing
-│       └── TraceIdHolder
 └── infrastructure
     ├── filter
-    │   └── TraceIdFilter
+    │   └── RequestIdFilter
     └── logging
         ├── RequestLoggingFilter
         └── LogbackConfigSupport
 ```
 
-## 9. 금지 항목
+## 9. RequestId 정책
+
+- 요청 식별자는 `requestId` 하나만 사용한다.
+- 클라이언트가 `X-Request-Id`를 보내면 그대로 사용한다.
+- `X-Request-Id`가 없으면 서버가 새 값을 생성한다.
+- 생성 또는 수신한 `requestId`는 MDC에 `requestId` 키로 저장한다.
+- 응답 헤더에도 동일한 `X-Request-Id`를 내려준다.
+
+권장 구현은 아래와 같다.
+
+```java
+package com.event.infrastructure.filter;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.UUID;
+
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class RequestIdFilter extends OncePerRequestFilter {
+
+    public static final String REQUEST_ID_HEADER = "X-Request-Id";
+    public static final String REQUEST_ID_MDC_KEY = "requestId";
+
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        String requestId = request.getHeader(REQUEST_ID_HEADER);
+
+        if (requestId == null || requestId.isBlank()) {
+            requestId = UUID.randomUUID().toString().replace("-", "");
+        }
+
+        MDC.put(REQUEST_ID_MDC_KEY, requestId);
+        response.setHeader(REQUEST_ID_HEADER, requestId);
+
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            MDC.remove(REQUEST_ID_MDC_KEY);
+        }
+    }
+}
+```
+
+## 10. 금지 항목
 
 - 주민번호, 전화번호, 전체 토큰, 쿠폰 원문, 외부 API 전체 payload 로그 적재 금지
 - point API 성공 응답 전문 전체 저장 금지
 - 응답 코드 세분화를 로그 대체 수단으로 사용하는 것 금지
 
-## 10. 결론
+## 11. 결론
 
 - 이번 범위에는 ELK 연동이 포함된다.
-- 로그는 `traceId`와 비즈니스 식별자를 포함한 구조화 로그로 남긴다.
+- 로그는 `requestId`와 비즈니스 식별자를 포함한 구조화 로그로 남긴다.
 - 운영 분석은 `ResponseCode`가 아니라 ELK 로그를 중심으로 수행한다.

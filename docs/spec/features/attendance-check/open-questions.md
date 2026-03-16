@@ -55,8 +55,8 @@
 
 ## API 상세 확정 항목
 
-- [ ] 공통 오류 코드 목록을 무엇으로 할지
-- [ ] `ENTY_APPLIED`, `EVT_OK` 외 실패 코드 네이밍을 무엇으로 할지
+- [x] API 응답 code는 `CommonCode` 기준으로 반환한다.
+- [x] 성공 응답 code는 `SUCCESS`를 사용한다.
 - [ ] GET 응답에 `createdAt`, `supplierId`, `eventUrl` 등을 모두 고정 노출할지
 
 ## DDL로 확인된 사항
