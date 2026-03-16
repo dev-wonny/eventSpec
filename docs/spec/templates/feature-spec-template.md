@@ -9,6 +9,7 @@
 - `business-rules.md`
 - `api-spec.md`
 - `data-spec.md`
+- `exception-handling.md`
 - `test-scenarios.md`
 - `open-questions.md`
 - `traceability.md`
@@ -46,6 +47,14 @@
 - 논리 개념과 물리 객체 매핑
 - 제약 조건과 인덱스 검토
 - 구현 연결 포인트
+
+## exception-handling.md
+
+- 예외 분류
+- try-catch 경계
+- 트랜잭션/롤백 기준
+- 외부 연동 실패 처리
+- 로그 및 운영 확인 포인트
 
 ## test-scenarios.md
 

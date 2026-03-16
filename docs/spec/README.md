@@ -20,9 +20,10 @@
 5. `features/<feature>/business-rules.md`
 6. `features/<feature>/api-spec.md`
 7. `features/<feature>/data-spec.md`
-8. `features/<feature>/test-scenarios.md`
-9. `features/<feature>/open-questions.md`
-10. `features/<feature>/traceability.md`
+8. `features/<feature>/exception-handling.md`
+9. `features/<feature>/test-scenarios.md`
+10. `features/<feature>/open-questions.md`
+11. `features/<feature>/traceability.md`
 
 ## 식별자 규칙
 
@@ -55,6 +56,7 @@ docs/
         business-rules.md
         api-spec.md
         data-spec.md
+        exception-handling.md
         test-scenarios.md
         open-questions.md
         traceability.md
