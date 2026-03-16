@@ -17,15 +17,17 @@
 2. `shared/glossary.md`
 3. `shared/tech-stack.md`
 4. `shared/package-structure.md`
-5. `features/<feature>/README.md`
-6. `features/<feature>/use-cases.md`
-7. `features/<feature>/business-rules.md`
-8. `features/<feature>/api-spec.md`
-9. `features/<feature>/data-spec.md`
-10. `features/<feature>/exception-handling.md`
-11. `features/<feature>/test-scenarios.md`
-12. `features/<feature>/open-questions.md`
-13. `features/<feature>/traceability.md`
+5. `shared/logging-observability-spec.md`
+6. `shared/code-package-response-spec.md`
+7. `features/<feature>/README.md`
+8. `features/<feature>/use-cases.md`
+9. `features/<feature>/business-rules.md`
+10. `features/<feature>/api-spec.md`
+11. `features/<feature>/data-spec.md`
+12. `features/<feature>/exception-handling.md`
+13. `features/<feature>/test-scenarios.md`
+14. `features/<feature>/open-questions.md`
+15. `features/<feature>/traceability.md`
 
 ## 식별자 규칙
 
@@ -52,6 +54,8 @@ docs/
       glossary.md
       tech-stack.md
       package-structure.md
+      logging-observability-spec.md
+      code-package-response-spec.md
     features/
       attendance-check/
         README.md

@@ -28,7 +28,7 @@
 
 - `X-Member-Id: {memberId}`
 - 현재는 신뢰된 호출 주체가 호출한다는 전제로 `X-Member-Id`를 우선 사용한다.
-- 향후에는 token 기반 필터를 붙일 예정이다.
+- JWT, Spring Security는 현재 범위에 포함하지 않는다.
 
 ### memberId
 

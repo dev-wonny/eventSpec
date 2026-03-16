@@ -9,6 +9,8 @@
 공통 설계 기준은 아래 문서를 함께 본다.
 
 - 패키지 구조 기준: `docs/spec/shared/package-structure.md`
+- 로그/관측성 기준: `docs/spec/shared/logging-observability-spec.md`
+- 응답/코드 패키지 기준: `docs/spec/shared/code-package-response-spec.md`
 - 기술 스택 기준: `docs/spec/shared/tech-stack.md`
 
 현재 1차 개발 범위는 출석체크이며, 랜덤 게임은 문서 자리만 먼저 확보한다.

@@ -160,6 +160,8 @@ public AttendanceResult attend(AttendanceCommand command) {
 - 요청 식별값: `eventId`, `roundId`, `memberId`
 - 외부 API 결과: 응답 코드, 타임아웃 여부, 추적 가능한 요청 ID
 - rollback 원인: 예외 타입, 실패 단계
+- 로그는 구조화된 형태로 남기고 ELK에서 조회 가능해야 한다.
+- `traceId`로 API 요청부터 point API 호출 실패까지 한 흐름으로 추적 가능해야 한다.
 - 민감한 개인정보나 보상 원문 payload 전체는 로그에 남기지 않는다.
 
 ## 현재 구조의 숨은 리스크

@@ -5,7 +5,7 @@
 ## 목표
 
 - 팀이 이미 익숙한 레이어드 + 포트/어댑터(헥사고날) 혼합 구조를 유지한다.
-- Spring Boot + JPA + QueryDSL에 맞는 실무형 DDD 구조를 사용한다.
+- Spring Boot + JPA + QueryDSL + Actuator + ELK에 맞는 실무형 DDD 구조를 사용한다.
 - 현재는 출석체크 중심으로 시작하되, `event`, `prize`, `entry`, `win` 구조가 자연스럽게 확장되도록 한다.
 
 ## 채택 방향
@@ -19,25 +19,29 @@
 
 ## 권장 루트 패키지
 
-프로젝트 초기에는 아래 형태를 권장한다.
+현재 Gradle `group`을 기준으로 아래 형태를 사용한다.
 
 ```text
-com.dolfarmer.event
+com.event
 ```
-
-실제 그룹/아티팩트가 확정되면 조직 표준에 맞춰 조정한다.
 
 ## 권장 패키지 트리
 
 ```text
-com.dolfarmer.event
+com.event
 ├── EventApplication
+├── common
+│   ├── logging
+│   ├── tracing
+│   └── util
 ├── presentation
 │   ├── controller
 │   ├── dto
 │   │   ├── request
 │   │   └── response
+│   │       └── BaseResponse
 │   └── exception
+│       └── GlobalExceptionHandler
 ├── application
 │   ├── dto
 │   │   ├── attendance
@@ -51,7 +55,9 @@ com.dolfarmer.event
 ├── domain
 │   ├── entity
 │   ├── exception
-│   │   └── code
+│   │   ├── ResponseCode
+│   │   ├── BusinessException
+│   │   └── ValidationCode
 │   ├── service
 │   ├── value
 │   └── util
@@ -64,12 +70,13 @@ com.dolfarmer.event
     │       └── dto
     ├── filter
     ├── interceptor
+    ├── logging
     ├── persistence
     │   └── database
     │       ├── builder
     │       ├── impl
     │       └── repository
-    └── security
+    └── monitoring
 ```
 
 ## 계층별 역할
@@ -87,6 +94,14 @@ com.dolfarmer.event
 - `EventController`
 - `BaseResponse`
 - `GlobalExceptionHandler`
+
+### `common.logging`
+
+- 공통 로그 필드명
+- MDC key 상수
+- 로그 컨텍스트 유틸
+
+응답 코드와 별개로 운영 분석에 필요한 공통 로그 키를 한 곳에서 관리한다.
 
 ### `application`
 
@@ -117,14 +132,15 @@ com.dolfarmer.event
 - `EventEntryEntity`
 - `EventWinEntity`
 - `AttendanceEntryPolicy`
-- `ResponseCode`, `EntryCode`, `EventCode`
+- `ResponseCode`, `BusinessException`, `ValidationCode`
 
 ### `infrastructure`
 
 - Spring Data JPA
 - QueryDSL 조회 구현
 - 외부 point API 연동
-- 보안/필터/설정
+- ELK 로그 설정
+- Actuator/필터/설정
 
 예시 클래스:
 
@@ -132,6 +148,9 @@ com.dolfarmer.event
 - `EventEntryRepositoryImpl`
 - `AttendanceEventQueryBuilder`
 - `PointClient`
+- `TraceIdFilter`
+- `RequestLoggingFilter`
+- `ActuatorConfig`
 
 ## 출석체크 기준 패키지 매핑
 
@@ -237,7 +256,22 @@ QueryDSL 조건 조합과 read model 조회 최적화 코드는 이쪽에 둔다
 - `PointGrantRequest`
 - `PointGrantResponse`
 
-외부 point API 스키마는 여기서 격리한다.
+외부 point API 스키마는 여기서 격리한다. 현재는 Spring Web 기반 클라이언트를 권장한다.
+
+### `infrastructure.monitoring`
+
+- Actuator endpoint 설정
+- health/readiness 노출 설정
+
+ECS 배포 환경에서 운영 상태 확인에 필요한 최소 actuator 구성을 여기서 관리한다.
+
+### `infrastructure.logging`
+
+- Request/Response logging filter
+- Logback 설정 지원
+- ELK 적재용 구조화 로그 설정
+
+이번 범위에 ELK 연동이 포함되므로 로깅 구성은 별도 인프라 패키지로 분리한다.
 
 ## 의존 방향
 
@@ -277,6 +311,9 @@ domain -> (가능하면 다른 계층을 모름)
 - 지금은 기능 수가 많지 않으므로 리더 예시와 같은 레이어 중심 구조를 우선 사용한다.
 - `event`, `prize`, `entry`가 더 커지면 기능별 상위 패키지 아래에 레이어를 두는 하이브리드 구조를 검토한다.
 - 그러나 초기 버전에서는 팀이 익숙한 전역 레이어 구조가 온보딩과 유지보수에 유리하다.
+- 에러 코드와 비즈니스 예외는 `domain.exception`에서 관리한다.
+- 공통 응답 포맷과 전역 예외 변환은 `presentation.dto.response`, `presentation.exception`에서 관리한다.
+- 공통 로그/추적 코드는 `common.logging`, `common.tracing`, `infrastructure.logging`에 분리한다.
 
 ## 나중에 하이브리드 구조로 전환하는 기준
 
@@ -294,3 +331,5 @@ domain -> (가능하면 다른 계층을 모름)
 4. 응답 포맷은 `presentation.dto.response`에서 끝낸다.
 5. QueryDSL 검색/조합 로직은 `infrastructure.persistence.database.builder`로 분리한다.
 6. 외부 point API DTO는 `infrastructure.external.point.dto`로 격리한다.
+7. 로그/추적 필터는 `infrastructure.logging`, `infrastructure.filter`, `common.tracing` 조합으로 분리한다.
+8. Actuator 운영 설정은 `infrastructure.monitoring`으로 분리한다.
