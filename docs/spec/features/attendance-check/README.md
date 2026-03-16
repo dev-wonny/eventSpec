@@ -7,6 +7,7 @@
 - `use-cases.md`: 사용자 시나리오와 요구사항
 - `business-rules.md`: 출석 정책과 검증 규칙
 - `service-validation.md`: Service 레이어에서 강제할 검증 규칙
+- `concurrency-control.md`: 중복 출석 방지, DB unique, point API idempotency 전략
 - `api-spec.md`: 확정된 외부용 API 계약 문서
 - `data-spec.md`: 제공된 DDL을 반영한 데이터 문서
 - `ddl-change.md`: 출석 spec 반영용 DDL 변경안
@@ -21,7 +22,7 @@
 - 요구사항/규칙: DDL 및 도메인 설명 반영
 - API 계약: 외부용 2개 API 기준 반영 완료
 - 데이터 구조: DDL 반영 완료, API와의 gap 확인 필요
-- DDL 변경안: `event_applicant`/`event_entry` 핵심 제약 초안 작성 완료
+- DDL 변경안: FK 제거 + 최소 unique 기준으로 초안 작성 완료
 - 전체 스키마 초안: 신규 환경 기준 SQL 초안 작성 완료
 - 테스트 시나리오: DDL 기반으로 보정 완료
 
@@ -39,18 +40,20 @@
 - 현재 출석 성공은 보상 매핑이 있는 경우 외부 point API 성공까지 포함한다.
 - 이번 프로젝트는 외부용 API만 제공하고, admin API는 별도 프로젝트에서 담당한다.
 - 현재 외부 API는 `POST /entries`, `GET /events/{eventId}` 두 개만 제공한다.
-- 신규 환경용 schema draft에는 `event_applicant (event_id, member_id) unique`, nullable `event_applicant.round_id`, `event_entry.event_id`, `event_entry.round_id`, `event_entry (event_id, round_id, member_id)` 조회 index를 반영했다.
+- 신규 환경용 schema draft에는 FK를 두지 않고, `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 반영했다.
+- 신규 환경용 schema draft에는 nullable `event_applicant.round_id`, `event_entry.event_id`, `event_entry.round_id`를 반영했다.
 
 ## 문서 사용 순서
 
 1. `use-cases.md`로 기능 목표를 확인한다.
 2. `business-rules.md`로 정책을 좁힌다.
 3. `service-validation.md`로 Service 검증 책임을 고정한다.
-4. `api-spec.md`와 `data-spec.md`에 입력물(DDL/API)을 연결한다.
-5. `exception-handling.md`로 예외 및 rollback 흐름을 고정한다.
-6. `test-scenarios.md`로 구현 완료 기준을 검증한다.
-7. `traceability.md`로 연결 누락이 없는지 확인한다.
-8. 합의되지 않은 내용은 `open-questions.md`에 남긴다.
+4. `concurrency-control.md`로 동시성/중복 방지 전략을 고정한다.
+5. `api-spec.md`와 `data-spec.md`에 입력물(DDL/API)을 연결한다.
+6. `exception-handling.md`로 예외 및 rollback 흐름을 고정한다.
+7. `test-scenarios.md`로 구현 완료 기준을 검증한다.
+8. `traceability.md`로 연결 누락이 없는지 확인한다.
+9. 합의되지 않은 내용은 `open-questions.md`에 남긴다.
 
 ## 기능 식별자 prefix
 

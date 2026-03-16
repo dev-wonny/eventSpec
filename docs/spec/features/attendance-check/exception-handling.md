@@ -8,15 +8,17 @@
 - 어떤 실패가 `event_entry`, `event_win` rollback으로 이어지는지 고정한다.
 - 프론트에 어떤 종류의 실패를 노출할지 일관되게 관리한다.
 - 향후 AWS 기반 비동기 구조로 전환할 때 변경 포인트를 분리한다.
+- FK 없이 운영하는 대신 Service 검증과 최소 unique가 어떻게 보완하는지도 함께 정리한다.
 
 ## 현재 처리 원칙
 
 1. 출석 회차에 보상 매핑이 있으면 출석 성공은 외부 point API 성공까지 포함한다.
-2. 출석 회차에 보상 매핑이 없으면 외부 point API를 호출하지 않는다.
-3. 외부 point API 실패 또는 무응답이면 출석은 실패다.
-4. 출석 실패 시 `event_entry`, `event_win`은 남지 않아야 한다.
-5. 예외를 catch한 뒤 삼키지 말고 도메인 예외로 변환해서 다시 던진다.
-6. 현재는 동기식 구조이므로 프론트는 즉시 성공 또는 실패를 받는다.
+2. 보상 매핑이 있는 출석은 `event_entry` 저장 후 외부 point API를 호출하고, 성공 시 `event_win`을 저장한다.
+3. 출석 회차에 보상 매핑이 없으면 외부 point API를 호출하지 않는다.
+4. 외부 point API 실패 또는 무응답이면 출석은 실패다.
+5. 출석 실패 시 `event_entry`, `event_win`은 남지 않아야 한다.
+6. 예외를 catch한 뒤 삼키지 말고 도메인 예외로 변환해서 다시 던진다.
+7. 현재는 동기식 구조이므로 프론트는 즉시 성공 또는 실패를 받는다.
 
 ## 예외 분류
 
@@ -26,7 +28,7 @@
 | Business 예외 | 같은 `event_id + round_id + member_id` 중복 응모, 출석 불가 시간 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | 요청 거절 |
 | External 실패 | point API 실패 응답 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | 출석 실패 |
 | External timeout | point API 무응답, 타임아웃 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | 현재 출석체크 불가 |
-| Persistence 예외 | unique 충돌, DB 저장 실패 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 또는 충돌 |
+| Persistence 예외 | 최소 unique 충돌, DB 저장 실패 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 또는 충돌 |
 | Unexpected 예외 | NPE, 매핑 오류, 기타 런타임 예외 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 |
 
 ## try-catch 경계
@@ -52,16 +54,32 @@
 
 ```text
 1. 요청 검증
-2. 이벤트/회차/중복 확인
+2. 이벤트/회차 정합성 확인
 3. applicant eligibility 조회 및 검증
-4. 출석 회차의 보상 매핑 확인
-5. 보상 매핑이 있으면 외부 point API 호출
-6. 성공 시 event_entry 저장
-7. 보상 지급이 실제 발생한 경우 event_win 저장
-8. 트랜잭션 커밋
+4. 중복 출석 확인
+5. 출석 회차의 보상 매핑 확인
+6. event_entry 저장
+7. 보상 매핑이 있으면 외부 point API 호출
+8. 성공 시 event_win 저장
+9. 트랜잭션 커밋
 ```
 
-외부 API 실패 또는 무응답이면 6~8 단계는 성공으로 확정되면 안 된다. 보상 매핑이 없으면 5와 7은 건너뛴다.
+외부 API 실패 또는 무응답이면 6~9 단계는 성공으로 확정되면 안 된다. 보상 매핑이 없으면 7과 8은 건너뛴다.
+
+이 단계에서 가장 중요한 검증 중 하나는 FK가 없기 때문에 `round.event_id == event.id`를 직접 확인하는 것이다.
+
+```sql
+SELECT *
+FROM event_round
+WHERE id = :roundId
+  AND event_id = :eventId;
+```
+
+```java
+if (!round.getEventId().equals(event.getId())) {
+    throw new IllegalArgumentException("ROUND_EVENT_MISMATCH");
+}
+```
 
 ## 권장 try-catch 구조
 
@@ -71,8 +89,10 @@ public AttendanceResult attend(AttendanceCommand command) {
     validate(command);
 
     Event event = loadEvent(command);
-    EventRound round = loadRound(command, event);
+    EventRound round = loadRound(command.roundId());
+    ensureRoundMatchesEvent(round, event.getId());
     EventApplicant applicant = loadEligibleApplicant(command, event, round);
+    ensureApplicantMatchesEvent(applicant, event.getId(), round.getId());
     Optional<EventRoundPrize> prize = loadAttendancePrize(round);
 
     ensureNoDuplicateAttendance(applicant, round);
@@ -99,6 +119,8 @@ public AttendanceResult attend(AttendanceCommand command) {
     }
 }
 ```
+
+위 흐름의 기준은 `event_entry` 저장 후 외부 point API 호출, 성공 시 `event_win` 저장이다. 외부 API 실패나 무응답이 발생하면 트랜잭션 전체가 롤백되어 `event_entry`도 남지 않아야 한다.
 
 ## rollback 기준
 
@@ -152,7 +174,14 @@ public AttendanceResult attend(AttendanceCommand command) {
 ### 외부 API 재시도
 
 - 타임아웃 후 실제 외부 시스템에서는 이미 point가 적립되었을 가능성이 있다.
-- 재시도 시 중복 지급을 막기 위한 외부 idempotency key 또는 업무 키가 필요할 수 있다.
+- 현재 출석체크는 `idempotency_key = event_id + round_id + member_id`를 사용한다.
+- 재시도 시 point 시스템의 `UNIQUE(idempotency_key)`가 중복 지급을 막아야 한다.
+
+## 동시성 제어 연결
+
+- 출석 중복은 Application 조회와 `uq_event_entry_event_round_member` unique 두 계층에서 막는다.
+- point 중복 지급은 외부 point 시스템의 `idempotency_key`로 막는다.
+- 자세한 흐름은 `concurrency-control.md`를 기준으로 구현한다.
 
 ## 향후 비동기 전환 메모
 

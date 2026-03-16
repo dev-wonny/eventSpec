@@ -24,6 +24,8 @@
 - [x] 출석 중복의 비즈니스 기준은 같은 `event_id + round_id + member_id` 재요청이다.
 - [x] 출석 이벤트에서 `event_entry`는 매일 출석 여부 판정을 위해 `event_id`, `round_id`를 가진다.
 - [x] 중복 출석 시 프론트에는 `이미 출석했습니다`를 노출한다.
+- [x] FK는 두지 않고 Service 검증으로 참조 정합성을 보장한다.
+- [x] DB에는 최소 unique만 유지한다.
 - [x] 출석체크 보상은 주로 point 중심으로 설계한다.
 - [x] 출석체크는 회차당 보상 매핑이 `0..1`개다.
 - [x] 출석 회차에 보상 매핑이 없으면 point를 지급하지 않는다.
@@ -61,7 +63,7 @@
 - [x] `event_round`는 `(event_id, round_no)` unique index로 이벤트 내 회차 번호가 보호된다.
 - [x] 제공된 원본 DDL의 `event_applicant` unique는 `(round_id, member_id)`였다.
 - [x] 후속 랜덤 보상 기능이 사용할 `event_round_prize`, `event_win` 경로가 준비되어 있다.
-- [x] `event_round_prize`는 `prize`를 FK로 참조한다.
-- [x] `event_win`은 `event_entry`, `event_round`를 FK로 참조한다.
-- [x] 신규 환경용 schema draft는 `event_applicant (event_id, member_id) unique`와 nullable `round_id`를 반영했다.
-- [x] 신규 환경용 schema draft는 `event_entry.event_id`, `event_entry.round_id`와 `(event_id, round_id, member_id)` 조회 index를 반영했다.
+- [x] 신규 환경용 schema draft는 FK를 두지 않는다.
+- [x] 신규 환경용 schema draft는 `event_applicant (event_id, member_id)`와 nullable `round_id`를 반영했다.
+- [x] 신규 환경용 schema draft는 `event_entry.event_id`, `event_entry.round_id`를 반영했다.
+- [x] 신규 환경용 schema draft는 `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 유지한다.

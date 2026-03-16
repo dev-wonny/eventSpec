@@ -22,7 +22,7 @@
 
 - `event_applicant`는 실제 참여 기록이 아니라 이벤트 참여 가능 대상자 풀이다.
 - `event_applicant`는 참여 조건이나 대상자 판정 결과를 사전에 적재해두는 테이블로 사용한다.
-- 기본 식별 기준은 `(event_id, member_id)`이며, 신규 환경용 schema draft에는 이 unique를 반영한다.
+- 기본 식별 기준은 `(event_id, member_id)`이며, 신규 환경용 schema draft에는 이 최소 unique를 반영한다.
 - `event_applicant.round_id`는 선택값이며 특정 회차에만 참여 가능하도록 제한할 때 사용한다.
 - 출석 요청 시 서버는 `event_applicant`를 기준으로 참여 가능 대상 여부를 검증해야 한다.
 - 이벤트가 기간 조건을 만족하고 `event_applicant`에 사용자가 존재하면, 참여 조건을 다시 계산하거나 외부 조회하지 않고 참여 가능자로 처리할 수 있다.
@@ -50,16 +50,18 @@
 - `POST /entries`에는 `X-Member-Id`가 필수다.
 - `GET /events/{eventId}`에서는 `X-Member-Id`가 선택이다.
 - 요청에 `event_id`와 `round_id`가 함께 들어오면 `event_round.event_id`와 일치하는지 확인해야 한다.
-- `event_applicant.event_id`는 FK가 아니므로 `round_id`와의 정합성도 애플리케이션에서 검증해야 한다.
+- FK를 두지 않으므로 `round.event_id == event.id`, `event_applicant.event_id == event.id`, `event_win.entry_id == event_entry.id` 같은 참조 정합성은 애플리케이션에서 검증해야 한다.
 - `event_applicant.round_id`가 `NULL`이 아니면 요청 `round_id`와 일치해야 한다.
 - 현재 참여자 식별은 `X-Member-Id`를 사용한다.
 
 ### ATT-RULE-007 동시성 제어
 
 - 동일 사용자의 동일 회차 출석 요청이 동시에 들어와도 최종 유효 출석은 한 건이어야 한다.
-- `event_applicant (event_id, member_id)` unique 제약을 대상자 데이터 중복 적재의 기본 방어선으로 둬야 한다.
-- 출석 중복은 `event_id + round_id + member_id` 기준 조회와 검증으로 제어해야 한다.
-- 그 위에 잠금 전략, 트랜잭션 격리수준, 멱등 키, `event_id + round_id + member_id` 조회 index를 함께 검토해야 한다.
+- FK는 두지 않고, 최소 unique만 유지한다.
+- 최소 unique 대상은 `event_round (event_id, round_no)`, `event_applicant (event_id, member_id)`, `event_entry (event_id, round_id, member_id)`, `event_win (entry_id)`다.
+- 출석 중복은 `event_id + round_id + member_id` 기준 조회와 검증으로 먼저 제어해야 한다.
+- 동시 요청에서는 `uq_event_entry_event_round_member` unique 충돌도 중복 출석으로 변환해야 한다.
+- 그 위에 잠금 전략, 트랜잭션 격리수준, 멱등 키, unique 충돌 처리 전략을 함께 검토해야 한다.
 
 ### ATT-RULE-008 이력 및 감사
 
@@ -87,6 +89,7 @@
 
 ### ATT-RULE-011 prize는 운영상 불변으로 취급한다
 
+- `prize`는 immutable 정책으로 운영한다.
 - `prize`는 CRUD 가능한 마스터 구조지만, 한 번 운영 세팅이 완료된 이후에는 수정하지 않는 것을 원칙으로 한다.
 - 이미 사용 중인 보상 내용을 바꿔야 할 때는 기존 `prize`를 수정하지 않고 새 `prize`를 생성한 뒤 `event_round_prize` 연결을 바꾸는 방식으로 처리한다.
 - 이 원칙을 통해 성과 집계나 추적 시 별도 snapshot 테이블 없이도 참조 시점의 의미를 안정적으로 유지한다.
@@ -94,6 +97,8 @@
 ### ATT-RULE-012 외부 point API 성공 시에만 출석 성공으로 확정한다
 
 - 출석 회차에 point 보상 매핑이 있는 경우에만 외부 point API를 호출한다.
+- 보상 매핑이 있는 출석은 `event_entry`를 먼저 저장하고 외부 point API를 호출한다.
+- 외부 point API 호출이 성공하면 `event_win`을 저장하고 최종 커밋한다.
 - 외부 point API 호출이 실패하면 `event_entry`와 `event_win`은 모두 롤백되어야 한다.
 - 외부 point API 호출이 실패한 요청은 출석 성공으로 간주하지 않는다.
 - 회차에 보상 매핑이 없으면 외부 point API를 호출하지 않고 `event_entry`만 저장한다.
@@ -123,8 +128,8 @@
 
 ## DDL 기반 구현 시사점
 
-- 출석 spec 기준으로는 `event_applicant`에 `(event_id, member_id)` unique와 nullable `round_id`, `event_entry`에 `event_id`, `round_id`, `member_id` 기반 조회 경로가 필요하다.
-- 신규 환경용 schema draft에는 위 구조와 조회 index를 반영한다.
+- 출석 spec 기준으로는 `event_applicant`에 `(event_id, member_id)` 최소 unique와 nullable `round_id`, `event_entry`에 `event_id`, `round_id`, `member_id` 기반 조회 경로가 필요하다.
+- 신규 환경용 schema draft에는 FK 없이 `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 반영한다.
 - 현재 DDL만으로는 `ATTENDANCE` 이벤트의 회차당 active `event_round_prize`를 1개로 강제하기 어렵기 때문에 애플리케이션 또는 운영 검증이 필요하다.
 - `event_round_prize`가 `prize`를 참조하므로, 보상 이력 안정성을 확보하려면 `prize` 변경 금지 원칙이 중요하다.
 - `event_win`은 외부 보상 API 성공 이력과 실제 지급 보상 추적에 사용되므로, 보상 매핑이 있는 출석 성공 판정은 외부 연동 성공에 강하게 결합된다.

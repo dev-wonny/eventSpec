@@ -1,25 +1,29 @@
 # DDL Change Draft
 
-이 문서는 출석체크 spec에서 확정된 `event_applicant`/`event_entry` 핵심 제약을 PostgreSQL DDL에 반영하기 위한 변경안을 정리한다. 현재는 신규 환경 기준이므로 최종 형태의 전체 DDL을 새로 만드는 방식을 우선 권장한다.
+이 문서는 출석체크 spec에서 확정된 구조를 PostgreSQL DDL에 반영하기 위한 변경안을 정리한다. 현재는 신규 환경 기준이므로 최종 형태의 전체 DDL을 새로 만드는 방식을 우선 권장한다.
 
 ## 이번 변경의 목적
 
+- FK는 두지 않고 Service 검증으로 참조 정합성을 보장해야 한다.
 - 출석 이벤트는 `event_round` 기준으로 매일 출석 여부를 판정해야 한다.
 - `event_applicant`는 실제 참여 기록이 아니라 이벤트 참여 가능 대상자 풀이어야 한다.
 - `event_applicant.round_id`는 특정 회차 대상자를 표현할 수 있도록 선택값이어야 한다.
 - 출석체크는 회차당 보상 매핑이 `0..1`개여야 하고, 보상 매핑이 없으면 무보상 출석을 허용해야 한다.
 - 따라서 `event_entry`가 어떤 회차에 대한 참여 이력인지 직접 알아야 한다.
 - 동일 참여자는 동일 회차에 대해 한 번만 유효한 출석 이력을 가져야 한다.
+- 동시에 회차 번호, 대상자, 출석 이력, 지급 결과 중복은 최소 unique로 막아야 한다.
 
 ## 이번 변경 범위
 
+- 모든 FK 제거
+- 최소 unique만 유지
 - `event_applicant (event_id, member_id)` unique 추가
 - `event_applicant.round_id`를 nullable로 조정
 - `event_entry`에 `event_id` 추가
 - `event_entry`에 `round_id` 추가
-- `event_entry (event_id, round_id, member_id)` 조회 index 추가
-- `event_entry.round_id -> event_round.id` FK 추가
-- 조회 성능용 index 추가
+- `event_entry (event_id, round_id, member_id)` unique 추가
+- `event_round (event_id, round_no)` unique 유지
+- `event_win (entry_id)` unique 유지
 
 ## 신규 환경 기준 권장안
 
@@ -45,9 +49,7 @@ CREATE TABLE event_platform.event_applicant (
     updated_by BIGINT      NOT NULL,
     deleted_at TIMESTAMPTZ,
 
-    CONSTRAINT pk_event_applicant PRIMARY KEY (id),
-    CONSTRAINT fk_event_applicant_round FOREIGN KEY (round_id)
-        REFERENCES event_platform.event_round(id)
+    CONSTRAINT pk_event_applicant PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE  event_platform.event_applicant IS '참여 가능 대상자 기준';
@@ -76,11 +78,7 @@ CREATE TABLE event_platform.event_entry (
     updated_by           BIGINT      NOT NULL,
     deleted_at           TIMESTAMPTZ,
 
-    CONSTRAINT pk_event_entry PRIMARY KEY (id),
-    CONSTRAINT fk_event_entry_applicant FOREIGN KEY (applicant_id)
-        REFERENCES event_platform.event_applicant(id),
-    CONSTRAINT fk_event_entry_round FOREIGN KEY (round_id)
-        REFERENCES event_platform.event_round(id)
+    CONSTRAINT pk_event_entry PRIMARY KEY (id)
 );
 
 COMMENT ON TABLE  event_platform.event_entry IS '응모 행위 이력';
@@ -98,8 +96,28 @@ COMMENT ON COLUMN event_platform.event_entry.updated_at IS '수정 일시';
 COMMENT ON COLUMN event_platform.event_entry.updated_by IS '수정자 식별자';
 COMMENT ON COLUMN event_platform.event_entry.deleted_at IS '삭제 일시';
 
-CREATE INDEX idx_event_entry_event_round_member_id
+CREATE UNIQUE INDEX uq_event_entry_event_round_member
     ON event_platform.event_entry (event_id, round_id, member_id)
+    WHERE is_deleted = FALSE;
+```
+
+### 최소 unique 목록
+
+```sql
+CREATE UNIQUE INDEX uq_event_round_event_round_no
+    ON event_platform.event_round (event_id, round_no)
+    WHERE is_deleted = FALSE;
+
+CREATE UNIQUE INDEX uq_event_applicant_event_member_id
+    ON event_platform.event_applicant (event_id, member_id)
+    WHERE is_deleted = FALSE;
+
+CREATE UNIQUE INDEX uq_event_entry_event_round_member
+    ON event_platform.event_entry (event_id, round_id, member_id)
+    WHERE is_deleted = FALSE;
+
+CREATE UNIQUE INDEX uq_event_win_entry_id
+    ON event_platform.event_win (entry_id)
     WHERE is_deleted = FALSE;
 ```
 
@@ -115,7 +133,7 @@ CREATE UNIQUE INDEX uq_event_applicant_event_member_id
 
 신규 환경에서는 필요 없지만, 기존 운영 DB에 반영해야 할 경우를 위한 참고안이다.
 
-### 1. 컬럼 추가와 FK 추가
+### 1. 컬럼 추가
 
 ```sql
 ALTER TABLE event_platform.event_entry
@@ -128,9 +146,6 @@ ALTER TABLE event_platform.event_entry
 
 COMMENT ON COLUMN event_platform.event_entry.round_id IS '출석/응모 회차 식별자';
 
-ALTER TABLE event_platform.event_entry
-    ADD CONSTRAINT fk_event_entry_round FOREIGN KEY (round_id)
-        REFERENCES event_platform.event_round(id);
 ```
 
 ### 2. 기존 데이터 backfill
@@ -141,7 +156,7 @@ ALTER TABLE event_platform.event_entry
 -- backfill 규칙이 먼저 준비되어야 한다.
 ```
 
-### 3. 필수값과 unique 반영
+### 3. 필수값과 최소 unique 반영
 
 ```sql
 ALTER TABLE event_platform.event_entry
@@ -150,7 +165,7 @@ ALTER TABLE event_platform.event_entry
 ALTER TABLE event_platform.event_entry
     ALTER COLUMN round_id SET NOT NULL;
 
-CREATE INDEX idx_event_entry_event_round_member_id
+CREATE UNIQUE INDEX uq_event_entry_event_round_member
     ON event_platform.event_entry (event_id, round_id, member_id)
     WHERE is_deleted = FALSE;
 ```
@@ -160,6 +175,7 @@ CREATE INDEX idx_event_entry_event_round_member_id
 - 현재 조건은 신규 환경이므로 전체 스키마를 최종 목표 구조로 바로 생성하면 된다.
 - 기존 데이터가 이미 있다면 `event_id`, `round_id` backfill 전략 없이 `NOT NULL`을 바로 추가하면 안 된다.
 - `event_applicant`는 eligibility 관리용이며 실제 참여 이력은 `event_entry`에만 남긴다.
-- 출석 중복의 비즈니스 판정은 `event_id + round_id + member_id` 기준으로 애플리케이션에서 수행한다.
+- FK가 없으므로 `round.event_id == event.id`, `event_applicant.event_id == event.id`, `event_win.entry_id == event_entry.id` 같은 참조 정합성은 Service에서 검증해야 한다.
+- 출석 중복의 비즈니스 판정은 `event_id + round_id + member_id` 기준으로 애플리케이션에서 수행하고, 최소 unique로도 함께 방어한다.
 - 출석체크의 회차당 active `event_round_prize = 0..1` 제약은 현재 스키마만으로 직접 강제되지 않으므로 애플리케이션 또는 운영 검증이 필요하다.
 - 랜덤 리워드는 같은 회차에 여러 `event_round_prize`와 확률 정책을 둘 수 있다.
