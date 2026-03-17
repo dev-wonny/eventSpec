@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: ds-event-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/event}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_schema: event
+        format_sql: true
+  jackson:
+    default-property-inclusion: non_null
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+point-api:
+  base-url: ${POINT_API_BASE_URL:http://localhost:8081}
+  grant-path: ${POINT_API_GRANT_PATH:/points/grants}
+  connect-timeout: 1s
+  read-timeout: 2s
+
+app:
+  time-zone: Asia/Seoul
+
+logging:
+  level:
+    root: INFO
+    com.event: INFO
+

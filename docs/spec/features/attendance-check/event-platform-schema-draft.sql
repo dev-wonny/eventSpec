@@ -33,9 +33,9 @@ CREATE TABLE event.prize (
     prize_description TEXT,
 
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by        BIGINT       NOT NULL,
-    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by        BIGINT       NOT NULL,
+    created_by        VARCHAR(50),
+    updated_at        TIMESTAMPTZ,
+    updated_by        VARCHAR(50),
     deleted_at        TIMESTAMPTZ,
 
     CONSTRAINT pk_prize PRIMARY KEY (id)
@@ -82,9 +82,9 @@ CREATE TABLE event.event (
     description              TEXT,
 
     created_at               TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by               BIGINT       NOT NULL,
-    updated_at               TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by               BIGINT       NOT NULL,
+    created_by               VARCHAR(50),
+    updated_at               TIMESTAMPTZ,
+    updated_by               VARCHAR(50),
     deleted_at               TIMESTAMPTZ,
 
     CONSTRAINT pk_event PRIMARY KEY (id)
@@ -131,9 +131,9 @@ CREATE TABLE event.event_round (
     is_deleted     BOOLEAN     NOT NULL DEFAULT FALSE,
 
     created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by     BIGINT      NOT NULL,
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by     BIGINT      NOT NULL,
+    created_by     VARCHAR(50),
+    updated_at     TIMESTAMPTZ,
+    updated_by     VARCHAR(50),
     deleted_at     TIMESTAMPTZ,
 
     CONSTRAINT pk_event_round PRIMARY KEY (id)
@@ -170,9 +170,9 @@ CREATE TABLE event.event_round_prize (
     is_deleted  BOOLEAN     NOT NULL DEFAULT FALSE,
 
     created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by  BIGINT      NOT NULL,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by  BIGINT      NOT NULL,
+    created_by  VARCHAR(50),
+    updated_at  TIMESTAMPTZ,
+    updated_by  VARCHAR(50),
     deleted_at  TIMESTAMPTZ,
 
     CONSTRAINT pk_event_round_prize PRIMARY KEY (id)
@@ -206,9 +206,9 @@ CREATE TABLE event.event_round_prize_probability (
     is_deleted           BOOLEAN      NOT NULL DEFAULT FALSE,
 
     created_at           TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by           BIGINT       NOT NULL,
-    updated_at           TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by           BIGINT       NOT NULL,
+    created_by           VARCHAR(50),
+    updated_at           TIMESTAMPTZ,
+    updated_by           VARCHAR(50),
     deleted_at           TIMESTAMPTZ,
 
     CONSTRAINT pk_event_round_prize_probability PRIMARY KEY (id)
@@ -240,9 +240,9 @@ CREATE TABLE event.event_applicant (
     is_deleted BOOLEAN     NOT NULL DEFAULT FALSE,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by BIGINT      NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by BIGINT      NOT NULL,
+    created_by VARCHAR(50),
+    updated_at TIMESTAMPTZ,
+    updated_by VARCHAR(50),
     deleted_at TIMESTAMPTZ,
 
     CONSTRAINT pk_event_applicant PRIMARY KEY (id)
@@ -276,9 +276,9 @@ CREATE TABLE event.event_entry (
     is_deleted           BOOLEAN     NOT NULL DEFAULT FALSE,
 
     created_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by           BIGINT      NOT NULL,
-    updated_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by           BIGINT      NOT NULL,
+    created_by           VARCHAR(50),
+    updated_at           TIMESTAMPTZ,
+    updated_by           VARCHAR(50),
     deleted_at           TIMESTAMPTZ,
 
     CONSTRAINT pk_event_entry PRIMARY KEY (id)
@@ -313,9 +313,9 @@ CREATE TABLE event.event_win (
     is_deleted           BOOLEAN     NOT NULL DEFAULT FALSE,
 
     created_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by           BIGINT      NOT NULL,
-    updated_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_by           BIGINT      NOT NULL,
+    created_by           VARCHAR(50),
+    updated_at           TIMESTAMPTZ,
+    updated_by           VARCHAR(50),
     deleted_at           TIMESTAMPTZ,
 
     CONSTRAINT pk_event_win PRIMARY KEY (id)
