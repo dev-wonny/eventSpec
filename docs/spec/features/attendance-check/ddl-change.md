@@ -23,6 +23,7 @@
 - `event_entry`에 `event_id` 추가
 - `event_entry`에 `round_id` 추가
 - `event_entry (event_id, round_id, member_id)` unique 추가
+- `event_round_prize_probability.weight` DB 기본값 `1` 적용
 - `event_round (event_id, round_no)` unique 유지
 - `event_win (entry_id)` unique 유지
 
@@ -88,7 +89,7 @@ COMMENT ON COLUMN event.event_entry.event_id IS '이벤트 식별자 (조회/중
 COMMENT ON COLUMN event.event_entry.round_id IS '출석/응모 회차 식별자';
 COMMENT ON COLUMN event.event_entry.member_id IS '회원 식별자';
 COMMENT ON COLUMN event.event_entry.applied_at IS '응모 일시';
-COMMENT ON COLUMN event.event_entry.event_round_prize_id IS '당첨 경품 식별자 (즉시당첨 시)';
+COMMENT ON COLUMN event.event_entry.event_round_prize_id IS '당첨 경품 식별자 보조값 (NULL 가능, SoT 아님)';
 COMMENT ON COLUMN event.event_entry.is_winner IS '당첨 여부 보조값 (SoT: event_win)';
 COMMENT ON COLUMN event.event_entry.is_deleted IS '논리 삭제 여부';
 COMMENT ON COLUMN event.event_entry.created_at IS '등록 일시';
@@ -119,14 +120,6 @@ CREATE UNIQUE INDEX uq_event_entry_event_round_member
 
 CREATE UNIQUE INDEX uq_event_win_entry_id
     ON event.event_win (entry_id)
-    WHERE is_deleted = FALSE;
-```
-
-### `event_applicant` 최종 unique
-
-```sql
-CREATE UNIQUE INDEX uq_event_applicant_event_member_id
-    ON event.event_applicant (event_id, member_id)
     WHERE is_deleted = FALSE;
 ```
 
@@ -176,6 +169,7 @@ CREATE UNIQUE INDEX uq_event_entry_event_round_member
 - 현재 조건은 신규 환경이므로 전체 스키마를 최종 목표 구조로 바로 생성하면 된다.
 - 기존 데이터가 이미 있다면 `event_id`, `round_id` backfill 전략 없이 `NOT NULL`을 바로 추가하면 안 된다.
 - `event_applicant`는 eligibility 관리용이며 실제 참여 이력은 `event_entry`에만 남긴다.
+- `event_entry.event_round_prize_id`는 보조값이며 실제 지급 보상의 SoT는 `event_win.event_round_prize_id`다.
 - FK가 없으므로 `round.event_id == event.id`, `event_applicant.event_id == event.id`, `event_win.entry_id == event_entry.id` 같은 참조 정합성은 Service에서 검증해야 한다.
 - 출석 중복의 비즈니스 판정은 `event_id + round_id + member_id` 기준으로 애플리케이션에서 수행하고, 최소 unique로도 함께 방어한다.
 - 출석체크의 회차당 active `event_round_prize = 0..1` 제약은 현재 스키마만으로 직접 강제되지 않으므로 애플리케이션 또는 운영 검증이 필요하다.

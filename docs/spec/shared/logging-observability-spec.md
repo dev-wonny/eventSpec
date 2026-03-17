@@ -51,7 +51,8 @@
 | `supplierId` | 공급사 식별자 |
 | `path` | 요청 경로 |
 | `method` | HTTP 메소드 |
-| `responseCode` | 공통 응답 코드 |
+| `commonCode` | 공통 응답 코드 |
+| `domainCode` | 도메인/운영 추적 코드 |
 | `httpStatus` | HTTP 상태 코드 |
 | `externalRequestId` | 외부 point API 요청 추적값 |
 | `exceptionClass` | 예외 클래스명 |
@@ -77,7 +78,44 @@
 8. `event_entry`, `event_win` 저장 결과
 9. 최종 응답 결과
 
-## 7. ELK 연동 기준
+### point API 타임아웃 로그 기준
+
+- point API timeout 기준은 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`다.
+- 타임아웃 발생 시 `ERROR` 레벨 로그를 남긴다.
+- 필수 로그 필드는 `requestId`, `commonCode=INTERNAL_ERROR`, `domainCode=POINT_API_TIMEOUT`, `eventId`, `roundId`, `memberId`다.
+- 재시도 시에도 같은 `idempotency_key = event_id + round_id + member_id`를 사용한다는 점을 로그 문맥에서 추적 가능해야 한다.
+
+## 7. 요청 처리 체인
+
+현재 이벤트 플랫폼의 로깅 구성 흐름은 아래를 기준으로 한다.
+
+```text
+RequestIdFilter
+        │
+        ▼
+AccessLogFilter
+        │
+        ▼
+Controller
+        │
+        ▼
+Service
+        │
+        ▼
+GlobalExceptionHandler
+```
+
+구성 요약:
+
+| Component | 목적 |
+| --- | --- |
+| `RequestIdFilter` | 요청 추적 |
+| `AccessLogFilter` | 트래픽 로그 |
+| `MDC` | 로그 상관관계 |
+| `logstash encoder` | JSON 로그 |
+| `ELK` | 로그 분석 |
+
+## 8. ELK 연동 기준
 
 - 애플리케이션 로그는 구조화된 JSON 형태로 출력한다.
 - Spring Boot에서는 `logstash-logback-encoder`를 사용해 JSON 로그를 출력한다.
@@ -86,7 +124,27 @@
 - 운영자는 중복 출석, point 지급 실패, 외부 API 타임아웃을 Kibana에서 검색할 수 있어야 한다.
 - ECS 환경에서는 파일 로그보다 stdout/stderr 스트림 수집을 우선 기준으로 본다.
 
-## 8. 코드 구조 권장
+### Kibana 조회 예시
+
+API 트래픽:
+
+```text
+uri : "/events/*"
+```
+
+오류 분석:
+
+```text
+status >= 500
+```
+
+특정 요청 추적:
+
+```text
+requestId : "8F1C5D9A"
+```
+
+## 9. 코드 구조 권장
 
 로그/요청 식별 관련 코드는 아래 패키지에 둔다.
 
@@ -100,11 +158,11 @@ com.event
     ├── filter
     │   └── RequestIdFilter
     └── logging
-        ├── RequestLoggingFilter
+        ├── AccessLogFilter
         └── LogbackConfigSupport
 ```
 
-## 9. RequestId 정책
+## 10. RequestId 정책
 
 - 요청 식별자는 `requestId` 하나만 사용한다.
 - 클라이언트가 `X-Request-Id`를 보내면 그대로 사용한다.
@@ -162,13 +220,35 @@ public class RequestIdFilter extends OncePerRequestFilter {
 }
 ```
 
-## 10. 금지 항목
+## 11. AccessLog 기준
+
+Access log는 요청 메소드, URI, 응답 상태, 처리 시간을 남기는 것을 기본으로 한다.
+
+예시:
+
+```java
+log.info(
+    "method={} uri={} status={} latency={}ms",
+    request.getMethod(),
+    request.getRequestURI(),
+    response.getStatus(),
+    latency
+);
+```
+
+권장 사항:
+
+- `requestId`는 MDC를 통해 자동 포함되도록 설정한다.
+- access log는 모든 요청에 대해 동일한 필드 구조를 유지한다.
+- 상태 코드와 latency는 Kibana 집계에 바로 쓸 수 있는 형태로 남긴다.
+
+## 12. 금지 항목
 
 - 주민번호, 전화번호, 전체 토큰, 쿠폰 원문, 외부 API 전체 payload 로그 적재 금지
 - point API 성공 응답 전문 전체 저장 금지
 - 응답 코드 세분화를 로그 대체 수단으로 사용하는 것 금지
 
-## 11. 결론
+## 13. 결론
 
 - 이번 범위에는 ELK 연동이 포함된다.
 - 로그는 `requestId`와 비즈니스 식별자를 포함한 구조화 로그로 남긴다.

@@ -17,17 +17,20 @@
 2. `shared/glossary.md`
 3. `shared/tech-stack.md`
 4. `shared/package-structure.md`
-5. `shared/logging-observability-spec.md`
-6. `shared/code-package-response-spec.md`
-7. `features/<feature>/README.md`
-8. `features/<feature>/use-cases.md`
-9. `features/<feature>/business-rules.md`
-10. `features/<feature>/api-spec.md`
-11. `features/<feature>/data-spec.md`
-12. `features/<feature>/exception-handling.md`
-13. `features/<feature>/test-scenarios.md`
-14. `features/<feature>/open-questions.md`
-15. `features/<feature>/traceability.md`
+5. `shared/domain-architecture-guide.md`
+6. `shared/core-domain-design.md`
+7. `shared/entity-example-guide.md`
+8. `shared/logging-observability-spec.md`
+9. `shared/code-package-response-spec.md`
+10. `features/<feature>/README.md`
+11. `features/<feature>/use-cases.md`
+12. `features/<feature>/business-rules.md`
+13. `features/<feature>/api-spec.md`
+14. `features/<feature>/data-spec.md`
+15. `features/<feature>/exception-handling.md`
+16. `features/<feature>/test-scenarios.md`
+17. `features/<feature>/open-questions.md`
+18. `features/<feature>/traceability.md`
 
 ## 식별자 규칙
 
@@ -54,6 +57,9 @@ docs/
       glossary.md
       tech-stack.md
       package-structure.md
+      domain-architecture-guide.md
+      core-domain-design.md
+      entity-example-guide.md
       logging-observability-spec.md
       code-package-response-spec.md
     features/

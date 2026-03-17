@@ -36,12 +36,19 @@
 - 출석 이벤트에서 `event_entry`는 일별 출석 여부 판단을 위해 `event_id`, `round_id`를 가져야 한다.
 - 출석체크는 회차당 보상 매핑이 `0..1`개다. 매핑이 없으면 무보상 출석으로 처리한다.
 - 랜덤 리워드는 하나의 `event_round`에 여러 `event_round_prize`를 둘 수 있고, 실제 지급 보상은 `event_win.event_round_prize_id`로 확정된다.
+- 랜덤 리워드의 기본 추첨 비중은 `event_round_prize_probability.weight`를 사용하고, `weight`는 DB 기본값 `1`을 사용한다.
+- 랜덤 리워드의 꽝/미지급 케이스는 `event_win` 행 없이 처리한다.
+- `event_entry.event_round_prize_id`는 보조값이며 `NULL` 가능하고, 실제 지급 보상의 SoT는 `event_win.event_round_prize_id`다.
 - `event_win`은 실제 지급된 보상과 외부 보상 API 성공 이력을 남긴다.
 - 현재 출석 성공은 보상 매핑이 있는 경우 외부 point API 성공까지 포함한다.
+- 외부 point API timeout 기준은 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`다.
+- 외부 point API 타임아웃은 외부 시스템 장애로 간주하며, 사용자에게 `INTERNAL_ERROR`를 반환한다.
 - 이번 프로젝트는 외부용 API만 제공하고, admin API는 별도 프로젝트에서 담당한다.
 - 현재 외부 API는 `POST /entries`, `GET /events/{eventId}` 두 개만 제공한다.
 - 신규 환경용 schema draft에는 FK를 두지 않고, `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 반영했다.
 - 신규 환경용 schema draft에는 `NOT NULL event_applicant.round_id`, `event_entry.event_id`, `event_entry.round_id`를 반영했다.
+- soft delete된 `event_applicant`, `event_entry`는 현재 유효 레코드로 보지 않으며 같은 키로 재출석을 허용한다.
+- soft delete된 `prize`, `event_round_prize`는 현재 활성 설정 조회에서는 제외하지만, 과거 지급 이력 조회와 집계에서는 참조 가능해야 한다.
 
 ## 문서 사용 순서
 

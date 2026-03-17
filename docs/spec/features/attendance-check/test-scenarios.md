@@ -17,15 +17,22 @@
 | ATT-TEST-009 | `event_applicant.round_id`가 저장된 사용자의 출석 요청 | applicant 조회는 `event_id + member_id` 기준으로 동작하고, `round_id`는 비어 있지 않은 기준 회차 값으로 유지된다 | ATT-RULE-003, ATT-RULE-006 |
 | ATT-TEST-010 | 월간 이벤트의 마지막 날짜 회차 출석 요청 | 올바른 `event_round`가 선택되고 출석이 저장된다 | ATT-RULE-001, ATT-RULE-002 |
 | ATT-TEST-011 | 외부 point API 실패 | `event_entry`, `event_win`이 모두 롤백되고 출석 실패 응답을 반환한다 | ATT-RULE-009, ATT-RULE-012 |
-| ATT-TEST-012 | 외부 point API 무응답 또는 타임아웃 | `event_entry`, `event_win`이 모두 롤백되고 프론트에 출석체크 불가 오류를 반환한다 | ATT-RULE-012, ATT-RULE-013 |
+| ATT-TEST-012 | 외부 point API 무응답 또는 타임아웃 | `event_entry`, `event_win`이 모두 롤백되고 `INTERNAL_ERROR`와 `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`를 반환한다 | ATT-RULE-012, ATT-RULE-013 |
 | ATT-TEST-026 | point API retry 발생 | 같은 `idempotency_key = event_id + round_id + member_id`로 중복 point 지급이 발생하지 않는다 | ATT-RULE-012, ATT-RULE-013 |
 | ATT-TEST-027 | point 지급 성공 후 event 서버 타임아웃 발생 뒤 재시도 | point 시스템의 `idempotency_key`가 중복 지급을 막는다 | ATT-RULE-012, ATT-RULE-013 |
+| ATT-TEST-033 | point API 성공 후 DB 커밋 실패 뒤 사용자 재시도 | 같은 `idempotency_key = event_id + round_id + member_id` 재호출로 중복 지급 없이 local `event_entry`, `event_win`이 복구된다 | ATT-RULE-012, ATT-RULE-013 |
+| ATT-TEST-034 | 외부 point API timeout 설정 확인 | `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초` 기준으로 client 설정이 반영된다 | ATT-RULE-013, ATT-SVC-008 |
 | ATT-TEST-013 | 출석 성공 시 지급 point 연결 확인 | `event_win.event_round_prize_id`가 회차의 point 보상 정책을 가리킨다 | ATT-RULE-009, ATT-RULE-010 |
 | ATT-TEST-023 | 출석 회차에 보상 매핑이 없는 경우 | 외부 point API를 호출하지 않고 `event_entry`만 저장되며 응답 `win`은 `null`이다 | ATT-RULE-009, ATT-RULE-010, ATT-RULE-012 |
 | ATT-TEST-024 | 출석 회차에 active `event_round_prize`가 2개 이상 설정된 경우 | 운영/검증 오류로 처리하고 출석을 진행하지 않는다 | ATT-RULE-009, ATT-RULE-010 |
 | ATT-TEST-022 | 대상자 풀이 적용된 이벤트에서 applicant가 없는 사용자의 출석 요청 | eligibility 오류를 반환하고 `event_entry`, `event_win`이 저장되지 않는다 | ATT-RULE-003, ATT-RULE-006 |
 | ATT-TEST-020 | `GET /events/{eventId}`를 `X-Member-Id` 없이 호출 | 전체 회차 기본 정보만 반환되고 `status = null`, `win = null`이다 | ATT-RULE-014 |
 | ATT-TEST-021 | `POST /entries`를 `X-Member-Id` 없이 호출 | `INVALID_REQUEST`와 헤더 오류 메시지를 반환한다 | ATT-RULE-006 |
+| ATT-TEST-028 | soft delete된 `event_applicant` 또는 `event_entry`가 있는 상태에서 같은 키로 다시 요청 | soft delete 레코드는 현재 유효값에서 제외되고, 동일 키로 재출석이 허용된다 | ATT-RULE-008, ATT-SVC-004, ATT-SVC-005 |
+| ATT-TEST-029 | `prize`와 `event_round_prize`를 함께 생성하는 도중 `event_round_prize` 저장 실패 | 두 레코드가 함께 롤백된다 | ATT-RULE-011 |
+| ATT-TEST-030 | `event_round_prize`만 soft delete | `prize`는 유지되고 현재 활성 회차 보상 조회에서만 제외된다 | ATT-RULE-011 |
+| ATT-TEST-031 | soft delete된 `prize`, `event_round_prize`가 과거 `event_win`과 연결된 상태 | 현재 활성 설정 조회에서는 제외되지만, 과거 지급 이력 조회와 집계에서는 참조 가능하다 | ATT-RULE-011 |
+| ATT-TEST-032 | 랜덤 리워드에서 꽝 또는 미지급 발생 | `event_entry`만 남고 `event_win`은 생성되지 않는다 | ATT-RULE-009 |
 
 ## 비기능 시나리오
 
@@ -56,6 +63,7 @@
 ### ATT-TEST-019 현재 동기식 외부 연동 제약
 
 - 외부 point API 응답 지연 중에는 요청이 성공으로 확정되지 않아야 하며, 사용자에게는 실패/불가 상태가 반환되어야 한다.
+- 외부 point API 타임아웃은 최대 3초 안에 종료되어야 한다.
 
 ## 테스트 레벨 가이드
 
@@ -70,4 +78,5 @@
 - 실제 에러 코드와 메시지 매핑
 - DDL에 FK가 제거되고, `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 반영되는지 테스트
 - 외부 point API 타임아웃 및 재시도 정책 테스트
+- point API client의 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초` 설정 테스트
 - `idempotency_key = event_id + round_id + member_id` 전달 및 중복 지급 방지 테스트

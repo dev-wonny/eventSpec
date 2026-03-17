@@ -35,6 +35,7 @@ CREATE UNIQUE INDEX uq_event_entry_event_round_member
 
 - 이 unique는 동시 요청에서 최종적으로 한 건만 성공시키는 2차 방어선이다.
 - Application 조회를 통과한 뒤라도 동시성 상황에서는 DB unique가 최종 충돌을 감지해야 한다.
+- unique가 `WHERE is_deleted = FALSE` 조건을 가지므로, soft delete된 과거 레코드는 현재 중복 판정 대상에 포함되지 않는다.
 
 ## Point API idempotency
 
@@ -94,6 +95,15 @@ UNIQUE(idempotency_key)
 - event 서버는 타임아웃 또는 실패로 인식했다.
 - 이후 재시도 시 point 시스템은 같은 `idempotency_key`로 중복 지급을 막는다.
 
+### 5. point success + DB commit failure
+
+- 외부 point API는 성공했다.
+- event 서버의 DB 커밋이 실패했다.
+- 이 경우 point 보정 차감은 하지 않는다.
+- 사용자가 재시도하면 같은 `idempotency_key`로 point API를 다시 호출한다.
+- point 시스템은 이미 처리된 요청으로 보고 중복 지급 없이 응답한다.
+- event 서버는 그 재시도 시점에 local `event_entry`, `event_win`을 복구한다.
+
 ## DB 충돌 동작
 
 - 트랜잭션이 commit 되기 전이라도 DB는 unique 충돌을 관리한다.
@@ -144,6 +154,8 @@ INSERT event_entry
 7. 성공 시 point API 호출
 8. point API 성공 시 `event_win` 저장 및 커밋
 9. point API 실패 시 전체 rollback
+
+DB 커밋 실패가 발생하면 보정 차감보다 `idempotency_key` 기반 local recovery를 우선한다.
 
 ## 관련 문서
 

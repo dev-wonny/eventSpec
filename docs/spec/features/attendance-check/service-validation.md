@@ -68,6 +68,7 @@ if (!round.getEventId().equals(eventId)) {
 ### ATT-SVC-004 참여 가능 대상자 검증
 
 - `event_applicant`에서 `(event_id, member_id)` 기준으로 참여 가능 대상자를 조회해야 한다.
+- 이 조회는 `is_deleted = FALSE`인 현재 유효 레코드만 대상으로 한다.
 - 대상자가 없으면 참여 불가 오류로 종료한다.
 - `event_applicant.round_id`는 `NULL`이면 안 된다.
 - `event_applicant.event_id`가 요청 `eventId`와 일치하는지도 검증해야 한다.
@@ -80,6 +81,7 @@ if (!round.getEventId().equals(eventId)) {
 
 - 중복 출석 기준은 `event_id + round_id + member_id`다.
 - 같은 키의 유효한 `event_entry`가 이미 있으면 `이미 출석했습니다`로 종료한다.
+- 여기서 유효한 `event_entry`는 `is_deleted = FALSE`인 레코드만 의미한다.
 - 이 검증은 저장 직전까지 유지해야 하며, 동시 요청 상황에서는 `uq_event_entry_event_round_member` unique 충돌도 함께 처리해야 한다.
 - `uq_event_entry_event_round_member`는 출석 시스템에서 필수 unique다.
 
@@ -102,8 +104,15 @@ if (!round.getEventId().equals(eventId)) {
 - 외부 point API가 성공하면 `event_win`을 저장하고 최종 커밋해야 한다.
 - 외부 point API가 실패하거나 무응답이면 `event_entry`, `event_win`은 모두 롤백해야 한다.
 - 외부 point API가 호출되지 않은 무보상 출석은 `event_entry`만 저장한다.
+- 외부 point API client는 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`를 사용해야 한다.
+- 외부 point API 타임아웃은 외부 시스템 장애로 간주하고, 출석 자체를 실패 처리해야 한다.
+- 타임아웃 응답의 공통 응답 코드는 `INTERNAL_ERROR`를 사용하고, 사용자 메시지는 `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`를 사용한다.
+- 타임아웃 발생 시 Service는 `requestId`, `commonCode=INTERNAL_ERROR`, `domainCode=POINT_API_TIMEOUT`, `eventId`, `roundId`, `memberId`를 구조화 로그로 남겨야 한다.
 - 외부 point API 호출 시 `idempotency_key = event_id + round_id + member_id`를 함께 전달해야 한다.
 - 같은 출석 요청의 point API retry는 외부 point 시스템의 `UNIQUE(idempotency_key)`로 중복 지급을 막아야 한다.
+- 현재 출석체크에서는 `date`, `rewardId`를 별도 멱등 키 구성값으로 추가하지 않고 `event_id + round_id + member_id`만 사용한다.
+- 외부 point API 성공 후 DB 커밋이 실패하면 point 보정 차감은 수행하지 않는다.
+- 이후 재시도 시 같은 `idempotency_key`로 외부 point API를 다시 호출하고, 중복 지급 없이 local `event_entry`, `event_win`을 복구하는 것을 기본 정책으로 한다.
 
 ### ATT-SVC-009 조회 API 상태 계산 검증
 

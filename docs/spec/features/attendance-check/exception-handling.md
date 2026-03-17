@@ -27,7 +27,7 @@
 | Validation 예외 | DTO 제약 위반, `X-Member-Id` 누락, path/body 타입 오류 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | `INVALID_REQUEST` |
 | Business 예외 | 이벤트 없음, 회차 없음, 이벤트-회차 불일치, 같은 `event_id + round_id + member_id` 중복 응모, 출석 불가 시간 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | 비즈니스 오류 |
 | External 실패 | point API 실패 응답 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | 출석 실패 |
-| External timeout | point API 무응답, 타임아웃 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | 현재 출석체크 불가 |
+| External timeout | point API 무응답, 타임아웃 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | `INTERNAL_ERROR` |
 | Persistence 예외 | 최소 unique 충돌, DB 저장 실패 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 또는 충돌 |
 | Unexpected 예외 | NPE, 매핑 오류, 기타 런타임 예외 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 |
 
@@ -68,6 +68,18 @@
 ```
 
 외부 API 실패 또는 무응답이면 6~9 단계는 성공으로 확정되면 안 된다. 보상 매핑이 없으면 7과 8은 건너뛴다.
+
+## 외부 point API 타임아웃 정책
+
+- `connection timeout = 1초`
+- `read timeout = 2초`
+- `총 대기 시간 = 최대 3초`
+- 타임아웃은 외부 시스템 장애로 간주한다.
+- 타임아웃이 발생하면 출석 참여 자체를 실패 처리한다.
+- 이 경우 `event_entry`, `event_win`은 모두 롤백되어야 한다.
+- 사용자 응답은 `INTERNAL_ERROR`를 사용한다.
+- 사용자 메시지는 `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`를 사용한다.
+- 사용자가 재시도하면 같은 `idempotency_key = event_id + round_id + member_id`로 외부 point API를 재호출한다.
 
 이 단계에서 가장 중요한 검증 중 하나는 FK가 없기 때문에 `round.event_id == event.id`를 직접 확인하는 것이다.
 
@@ -143,7 +155,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 
 ### 추가 확인 필요
 
-- 외부 API 성공 후 DB 커밋 실패 시 보상 보정 또는 재처리 방식
+- 외부 API 성공 후 DB 커밋 실패 시 local recovery 방식
 
 ## 예외별 응답 가이드
 
@@ -151,7 +163,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 | --- | --- | --- |
 | Validation 예외 | 잘못된 요청 | `INVALID_REQUEST` |
 | `AttendanceDuplicateException` | 같은 `event_id + round_id + member_id` 기준 이미 출석 완료 | 이미 출석했습니다 |
-| `AttendanceUnavailableException` | 외부 API 무응답 또는 타임아웃 | 현재 출석체크를 진행할 수 없음 |
+| `AttendanceUnavailableException` | 외부 API 무응답 또는 타임아웃 | `INTERNAL_ERROR`, `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.` |
 | `AttendanceRewardFailedException` | 외부 API 실패 응답 | 출석 처리 실패 |
 | `AttendanceConflictException` | 동시성/DB 충돌 | 잠시 후 다시 시도 |
 | `AttendanceUnexpectedException` | 예상치 못한 오류 | 일시적 오류 |
@@ -165,6 +177,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 - rollback 원인: 예외 타입, 실패 단계
 - 로그는 구조화된 형태로 남기고 ELK에서 조회 가능해야 한다.
 - `requestId`로 API 요청부터 point API 호출 실패까지 한 흐름으로 추적 가능해야 한다.
+- point API 타임아웃 로그에는 `commonCode=INTERNAL_ERROR`, `domainCode=POINT_API_TIMEOUT`, `eventId`, `roundId`, `memberId`를 함께 남긴다.
 - 민감한 개인정보나 보상 원문 payload 전체는 로그에 남기지 않는다.
 
 ## 현재 구조의 숨은 리스크
@@ -173,7 +186,12 @@ public AttendanceResult attend(AttendanceCommand command) {
 
 - 외부 point API는 이미 성공했는데 `event_entry` 또는 `event_win` 커밋이 실패할 수 있다.
 - 이 경우 DB rollback만으로는 외부 지급을 되돌릴 수 없다.
-- 따라서 보정 API, 재처리 작업, 운영 수동 대응 중 어떤 방식으로 정합성을 맞출지 별도 정책이 필요하다.
+- 현재 정책은 point 보정 차감을 하지 않고, 같은 `idempotency_key` 재호출을 통해 local DB를 복구하는 것이다.
+- 현재 출석체크의 `idempotency_key`는 `event_id + round_id + member_id`를 사용한다.
+- 사용자가 재시도하면 같은 `idempotency_key`로 point API를 다시 호출한다.
+- point 시스템은 이미 처리된 요청을 중복 지급 없이 흡수해야 한다.
+- event 서버는 그 재시도 시점에 local `event_entry`, `event_win`을 다시 저장해 정합성을 복구한다.
+- 재시도가 들어오지 않는 경우에는 운영 수동 복구 또는 별도 재처리 작업으로 local 이력을 보완할 수 있다.
 
 ### 외부 API 재시도
 

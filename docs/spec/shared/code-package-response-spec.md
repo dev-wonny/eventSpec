@@ -85,6 +85,24 @@ public record BaseResponse<T>(
                 data
         );
     }
+
+    public static BaseResponse<Void> error(ResponseCode code) {
+        return new BaseResponse<>(
+                code.getCommonCode().getCode(),
+                code.getMessage(),
+                Instant.now(),
+                null
+        );
+    }
+
+    public static <T> BaseResponse<T> error(CommonCode code, String message, T data) {
+        return new BaseResponse<>(
+                code.getCode(),
+                message,
+                Instant.now(),
+                data
+        );
+    }
 }
 ```
 
@@ -92,7 +110,9 @@ public record BaseResponse<T>(
 
 - 이 구현 자체는 고정이다.
 - 성공 응답은 `CommonCode.SUCCESS`를 사용해 `BaseResponse.of(...)`로 생성할 수 있다.
-- `BusinessException` 오류 응답은 `GlobalExceptionHandler`에서 `CommonCode` 기준 code로 직접 조립한다.
+- 오류 응답도 `BaseResponse.error(...)` 팩토리 메서드로 생성하는 것을 권장한다.
+- `BusinessException` 오류 응답은 `BaseResponse.error(ResponseCode code)`를 사용한다.
+- Validation 오류 응답은 `BaseResponse.error(CommonCode code, String message, T data)`를 사용한다.
 
 ## 5. ResponseCode 인터페이스
 
@@ -298,14 +318,7 @@ public ResponseEntity<BaseResponse<Void>> handleBusinessException(BusinessExcept
 
     return ResponseEntity
         .status(rc.getStatus())
-        .body(
-            new BaseResponse<>(
-                rc.getCommonCode().getCode(),
-                rc.getMessage(),
-                Instant.now(),
-                null
-            )
-        );
+        .body(BaseResponse.error(rc));
 }
 ```
 
@@ -343,14 +356,11 @@ public ResponseEntity<BaseResponse<Map<String, String>>> handleValidationExcepti
 
     return ResponseEntity
             .status(CommonCode.INVALID_REQUEST.getStatus())
-            .body(
-                new BaseResponse<>(
-                    CommonCode.INVALID_REQUEST.getCode(),
+            .body(BaseResponse.error(
+                    CommonCode.INVALID_REQUEST,
                     CommonCode.INVALID_REQUEST.getMessage(),
-                    Instant.now(),
                     errors
-                )
-            );
+            ));
 }
 ```
 

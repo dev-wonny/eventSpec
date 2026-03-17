@@ -196,6 +196,20 @@ public BaseResponse<EventEntryResponse> enterEvent(
   - 프론트 메시지: `이미 출석했습니다`
 - 보상 매핑이 있는 회차에서 외부 point API 실패
 - 보상 매핑이 있는 회차에서 외부 point API 무응답
+  - point API timeout 기준: `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`
+  - `code`: `INTERNAL_ERROR`
+  - `message`: `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`
+
+#### 외부 point API 타임아웃 응답 예시
+
+```json
+{
+  "code": "INTERNAL_ERROR",
+  "message": "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+  "timestamp": "2026-03-17T12:00:00Z",
+  "data": null
+}
+```
 
 ## ATT-API-002 이벤트 상세 및 참여 상태 조회
 
@@ -227,8 +241,11 @@ public BaseResponse<EventDetailResponse> getEvent(
 - `eventType = ATTENDANCE`일 때 전체 회차 목록과 출석 상태를 반환한다.
 - 페이지네이션은 없다.
 - `X-Member-Id`가 있으면 해당 회원의 출석 상태를 포함한다.
+- `ATTENDED / MISSED / TODAY / FUTURE` 계산 기준 시각은 한국 시간(`Asia/Seoul`)이다.
 - `X-Member-Id`가 없으면 전체 회차 기본 정보만 반환한다.
 - `X-Member-Id`가 없을 때는 `rounds[].status = null`, `rounds[].win = null`이다.
+- GET 응답에서는 `createdAt`은 노출하지 않는다.
+- GET 응답에서는 `supplierId`, `eventUrl`은 고정 노출한다.
 - 출석 완료 회차라도 보상 매핑이 없었다면 `status = ATTENDED`, `win = null`일 수 있다.
 
 ### 성공 응답
@@ -255,7 +272,6 @@ public BaseResponse<EventDetailResponse> getEvent(
     "isActive": true,
     "isVisible": true,
     "description": "매일 출석하고 포인트를 받으세요!",
-    "createdAt": "2026-01-20T10:00:00Z",
     "totalCount": 28,
     "rounds": [
       { "roundId": 1, "roundNo": 1, "roundDate": "2026-02-01", "status": "ATTENDED", "win": { "prizeName": "출석 포인트", "rewardType": "POINT", "pointAmount": 30 } },
@@ -287,6 +303,8 @@ public BaseResponse<EventDetailResponse> getEvent(
 | `MISSED` | 과거 날짜 + 미출석 | 출석 누락 |
 | `TODAY` | 오늘 날짜 | 현재 진행 중인 회차 |
 | `FUTURE` | 오늘 이후 날짜 | 잠김 |
+
+상태 계산의 오늘/과거/미래 기준은 한국 시간(`Asia/Seoul`)이다.
 
 ## 미래 참고 예시
 
@@ -370,7 +388,6 @@ public BaseResponse<EventDetailResponse> getEvent(
     "isMultipleEntry": false,
     "isWinnerAnnounced": false,
     "description": "경품 이벤트 설명",
-    "createdAt": "2026-02-20T10:00:00Z",
     "rounds": [
       {
         "roundId": 1,

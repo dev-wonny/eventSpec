@@ -36,28 +36,38 @@
 - [x] 외부 point API 실패 또는 무응답 시 `event_entry`, `event_win`은 롤백한다.
 - [x] 현재는 외부 API 동기 응답 기반이며, 무응답 시 프론트는 출석체크 불가 오류를 표시한다.
 - [x] 애플리케이션 로그는 이번 범위에서 ELK로 적재한다.
+- [x] `GET`의 `TODAY / MISSED / FUTURE` 판정 기준 타임존은 한국 시간(`Asia/Seoul`)이다.
+- [x] `is_visible = FALSE`여도 직접 API 출석은 허용한다.
 
 ## 우선 확인 항목
 
-- [ ] `event_entry.event_round_prize_id`를 출석체크에서 사용할지, `event_win.event_round_prize_id`만 사용할지
-- [ ] 랜덤 리워드에서 여러 active `event_round_prize`와 확률 정책을 어떤 계산 규칙으로 적용할지
-- [ ] `GET`의 `TODAY / MISSED / FUTURE` 판정 기준 타임존을 무엇으로 볼지
+- [x] `event_entry.event_round_prize_id`는 보조값으로만 사용하며 `NULL` 가능하다.
+- [x] 실제 지급 보상의 SoT는 `event_win.event_round_prize_id`다.
+- [x] 랜덤 리워드의 기본 계산 규칙은 `weight` 기반으로 본다.
+- [x] `weight`는 DB 기본값 `1`을 사용한다.
 - [ ] `GET`에서 `X-Member-Id`가 없을 때 `attendanceSummary`를 생략할지, `totalDays`만 줄지
-- [ ] `is_visible = FALSE` 이벤트에 대해 직접 API 출석을 허용할지
-- [ ] soft delete된 applicant/entry가 있을 때 재출석을 허용할지
-- [ ] soft delete된 `prize` 또는 `event_round_prize`가 기존 집계/조회에 어떤 의미를 가지는지
+- [x] soft delete된 applicant/entry가 있더라도 재출석은 허용한다.
+- [x] soft delete된 `prize`, `event_round_prize`는 현재 활성 설정 조회에서는 제외한다.
+- [x] soft delete된 `prize`, `event_round_prize`도 과거 지급 이력 조회와 집계에서는 필요 시 참조할 수 있어야 한다.
+- [x] `prize`와 `event_round_prize`를 함께 생성하는 흐름에서 하나라도 실패하면 함께 롤백한다.
+- [x] `event_round_prize`만 삭제해도 `prize`는 함께 삭제되지 않는다.
+- [x] `prize`, `event_round_prize`를 함께 삭제하려는 경우에는 두 테이블 모두 soft delete한다.
 - [ ] 취소/정정 기능이 필요한가
 - [ ] 감사 로그 수준은 어디까지 필요한가
-- [ ] 랜덤 리워드에서 꽝/미지급 케이스를 `event_win` 행으로 남길지, 행 없이 처리할지
-- [ ] 외부 point API 타임아웃 기준 시간과 사용자 노출 에러 코드를 무엇으로 할지
+- [x] 랜덤 리워드의 꽝/미지급 케이스는 `event_win` 행 없이 처리한다.
+- [x] 외부 point API 타임아웃은 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`를 사용한다.
+- [x] 외부 point API 타임아웃은 외부 시스템 장애로 간주하고, 사용자에게 `INTERNAL_ERROR`와 `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`를 반환한다.
 - [ ] 향후 AWS 기반 큐 전환 시 `event_win` 생성 시점을 어떻게 가져갈지
-- [ ] 외부 point API 성공 후 DB 커밋 실패 시 보상 보정 또는 재처리를 어떻게 할지
+- [x] 외부 point API 성공 후 DB 커밋 실패 시 point 보정 차감은 하지 않는다.
+- [x] 외부 point API는 `idempotency_key = event_id + round_id + member_id`를 사용한다.
+- [x] DB 커밋 실패 후 사용자 재시도 시 같은 `idempotency_key`로 point API를 재호출하고 local `event_entry`, `event_win`을 복구한다.
 
 ## API 상세 확정 항목
 
 - [x] API 응답 code는 `CommonCode` 기준으로 반환한다.
 - [x] 성공 응답 code는 `SUCCESS`를 사용한다.
-- [ ] GET 응답에 `createdAt`, `supplierId`, `eventUrl` 등을 모두 고정 노출할지
+- [x] GET 응답에서는 `createdAt`을 제거한다.
+- [x] GET 응답에서는 `supplierId`, `eventUrl`을 고정 노출한다.
 
 ## DDL로 확인된 사항
 
