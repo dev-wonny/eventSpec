@@ -17,9 +17,9 @@ import org.hibernate.annotations.SQLDelete;
 
 @Getter
 @Entity
-@Table(name = "prize", schema = "event")
+@Table(name = "prize", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.prize SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.prize SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 public class PrizeEntity extends BaseEntity {
 
     @Id
@@ -30,7 +30,7 @@ public class PrizeEntity extends BaseEntity {
     private String prizeName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "reward_type", nullable = false, length = 20)
+    @Column(name = "reward_type", nullable = false, length = 50)
     private RewardType rewardType;
 
     @Column(name = "point_amount")

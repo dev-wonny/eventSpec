@@ -16,7 +16,7 @@
 - 저장과 상태 변경은 JPA Entity 기준으로 처리한다.
 - 조회는 QueryDSL로 필요한 데이터를 각각 조회한다.
 - JPA 연관관계 기반 join fetch, entity graph, lazy 컬렉션 순회는 기본 전략으로 사용하지 않는다.
-- FK를 두지 않으므로 Entity도 연관 객체 대신 ID 필드를 기본으로 사용한다.
+- 최소 FK만 두므로 Entity는 연관 객체 대신 ID 필드를 기본으로 사용한다.
 - 도메인 정책과 비즈니스 규칙은 Entity보다 `DomainService`, `Policy`, `Processor`에 둔다.
 
 정리:
@@ -110,6 +110,7 @@ public abstract class BaseEntity {
 
 - 시간은 현재 운영 기준상 한국 시간(`Asia/Seoul`) 기준으로 해석한다.
 - 감사 컬럼 입력 방식은 JPA Auditing 또는 서비스 직접 세팅 중 하나로 프로젝트에서 통일하면 된다.
+- 감사 컬럼 `created_by`, `updated_by`는 `BIGINT` member id 기준으로 유지하고, system 처리도 문자열 계정명이 아니라 member id 값 참조 방식으로 기록한다.
 
 ## 5. EventEntity 예시
 
@@ -140,9 +141,9 @@ import org.hibernate.annotations.SQLRestriction;
 @Getter
 @Entity
 @DynamicUpdate
-@Table(name = "event", schema = "event")
+@Table(name = "event", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class EventEntity extends BaseEntity {
 
@@ -154,7 +155,7 @@ public class EventEntity extends BaseEntity {
     private String eventName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false, length = 30)
+    @Column(name = "event_type", nullable = false, length = 50)
     private EventType eventType;
 
     @Column(name = "start_at", nullable = false)
@@ -281,9 +282,9 @@ import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "event_round", schema = "event")
+@Table(name = "event_round", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event_round SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event_round SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class EventRoundEntity extends BaseEntity {
 
@@ -316,7 +317,7 @@ public class EventRoundEntity extends BaseEntity {
 
 포인트:
 
-- DB에 FK가 없으므로 JPA도 `EventEntity event` 대신 `Long eventId`를 기본으로 둔다.
+- 최소 FK만 유지하므로 JPA도 `EventEntity event` 대신 `Long eventId`를 기본으로 둔다.
 - 정합성 검증은 서비스에서 수행한다.
 
 ## 7. EventApplicantEntity 예시
@@ -341,9 +342,9 @@ import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "event_applicant", schema = "event")
+@Table(name = "event_applicant", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event_applicant SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event_applicant SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class EventApplicantEntity extends BaseEntity {
 
@@ -353,9 +354,6 @@ public class EventApplicantEntity extends BaseEntity {
 
     @Column(name = "event_id", nullable = false)
     private Long eventId;
-
-    @Column(name = "round_id", nullable = false)
-    private Long roundId;
 
     @Column(name = "member_id", nullable = false)
     private Long memberId;
@@ -368,7 +366,7 @@ public class EventApplicantEntity extends BaseEntity {
 포인트:
 
 - 현재 의미는 이벤트 단위 사전 참여 가능 대상 풀이 아니라 회차별 applicant 기준 데이터다.
-- `(event_id, round_id, member_id)` 최소 unique는 DDL에서 관리한다.
+- `(round_id, member_id)` 최소 unique는 DDL에서 관리한다.
 
 ## 8. EventEntryEntity 예시
 
@@ -393,9 +391,9 @@ import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "event_entry", schema = "event")
+@Table(name = "event_entry", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event_entry SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event_entry SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class EventEntryEntity extends BaseEntity {
 
@@ -431,7 +429,8 @@ public class EventEntryEntity extends BaseEntity {
 
 포인트:
 
-- 출석 중복 기준은 `(event_id, round_id, member_id)`다.
+- 출석 중복 기준은 `(round_id, member_id)`다.
+- `event_entry`의 회차는 `applicant_id -> event_applicant.round_id`로 파생한다.
 - partial unique index는 JPA annotation보다 DDL로 관리하는 것이 맞다.
 
 ## 9. EventWinEntity 예시
@@ -456,9 +455,9 @@ import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "event_win", schema = "event")
+@Table(name = "event_win", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event_win SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event_win SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class EventWinEntity extends BaseEntity {
 
@@ -513,9 +512,9 @@ import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "prize", schema = "event")
+@Table(name = "prize", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.prize SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.prize SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class PrizeEntity extends BaseEntity {
 
@@ -526,7 +525,7 @@ public class PrizeEntity extends BaseEntity {
     @Column(name = "prize_name", nullable = false, length = 100)
     private String prizeName;
 
-    @Column(name = "reward_type", nullable = false, length = 20)
+    @Column(name = "reward_type", nullable = false, length = 50)
     private String rewardType;
 
     @Column(name = "point_amount")
@@ -555,7 +554,7 @@ public class PrizeEntity extends BaseEntity {
 
 현재 프로젝트는 아래 이유로 연관 객체보다 ID 필드를 기본으로 사용한다.
 
-- DB FK를 사용하지 않는다.
+- `event_round`, `event_round_prize`, `event_round_prize_probability`, `event_applicant`에는 최소 FK를 사용한다.
 - QueryDSL로 개별 조회 후 조립하는 방식을 사용한다.
 - JPA 연관 join, lazy 컬렉션 순회, join fetch 의존을 피하고 싶다.
 - 서비스에서 정합성을 명시적으로 검증하려고 한다.

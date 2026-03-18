@@ -16,9 +16,9 @@ import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "event_entry", schema = "event")
+@Table(name = "event_entry", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event_entry SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event_entry SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class EventEntryEntity extends BaseEntity {
 
@@ -31,9 +31,6 @@ public class EventEntryEntity extends BaseEntity {
 
     @Column(name = "event_id", nullable = false)
     private Long eventId;
-
-    @Column(name = "round_id", nullable = false)
-    private Long roundId;
 
     @Column(name = "member_id", nullable = false)
     private Long memberId;
@@ -52,7 +49,6 @@ public class EventEntryEntity extends BaseEntity {
             Long id,
             Long applicantId,
             Long eventId,
-            Long roundId,
             Long memberId,
             Instant appliedAt,
             Long eventRoundPrizeId,
@@ -61,7 +57,6 @@ public class EventEntryEntity extends BaseEntity {
         this.id = id;
         this.applicantId = applicantId;
         this.eventId = eventId;
-        this.roundId = roundId;
         this.memberId = memberId;
         this.appliedAt = appliedAt;
         this.eventRoundPrizeId = eventRoundPrizeId;
@@ -71,16 +66,14 @@ public class EventEntryEntity extends BaseEntity {
     public static EventEntryEntity create(
             Long applicantId,
             Long eventId,
-            Long roundId,
             Long memberId,
             Long eventRoundPrizeId,
             boolean isWinner,
-            String actor
+            Long actor
     ) {
         EventEntryEntity entity = EventEntryEntity.builder()
                 .applicantId(applicantId)
                 .eventId(eventId)
-                .roundId(roundId)
                 .memberId(memberId)
                 .appliedAt(Instant.now())
                 .eventRoundPrizeId(eventRoundPrizeId)

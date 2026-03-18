@@ -17,14 +17,14 @@ public abstract class BaseEntity {
     @Column(name = "created_at", nullable = false)
     protected Instant createdAt;
 
-    @Column(name = "created_by", length = 50)
-    protected String createdBy;
+    @Column(name = "created_by", nullable = false)
+    protected Long createdBy;
 
     @Column(name = "updated_at")
     protected Instant updatedAt;
 
-    @Column(name = "updated_by", length = 50)
-    protected String updatedBy;
+    @Column(name = "updated_by", nullable = false)
+    protected Long updatedBy;
 
     @Column(name = "deleted_at")
     protected Instant deletedAt;
@@ -48,7 +48,7 @@ public abstract class BaseEntity {
         updatedAt = Instant.now();
     }
 
-    protected void initializeAudit(String actor) {
+    protected void initializeAudit(Long actor) {
         Instant now = Instant.now();
         this.createdAt = now;
         this.createdBy = actor;
@@ -57,4 +57,3 @@ public abstract class BaseEntity {
         this.isDeleted = Boolean.FALSE;
     }
 }
-

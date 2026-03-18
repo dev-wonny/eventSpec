@@ -10,7 +10,7 @@
 
 ## 기본 원칙
 
-- `event_applicant`에는 `UNIQUE (event_id, round_id, member_id)`가 반드시 있어야 한다.
+- `event_applicant`에는 `UNIQUE (round_id, member_id)`가 반드시 있어야 한다.
 - 출석 중복 판정의 최종 기준은 `event_applicant` insert 결과다.
 - `event_entry`는 응모권 이력이므로 출석 중복 제어용 unique를 두지 않는다.
 - point 지급 중복 방지는 외부 point 시스템의 `idempotency_key`로 처리한다.
@@ -21,11 +21,11 @@
 
 - Service는 `event_applicant` insert를 시도한다.
 - insert가 성공하면 같은 회차 출석이 처음이라는 뜻이다.
-- insert가 `uq_event_applicant_event_round_member`에 걸리면 중복 출석으로 변환한다.
+- insert가 `uq_event_applicant_round_member_id`에 걸리면 중복 출석으로 변환한다.
 
 ```sql
-CREATE UNIQUE INDEX uq_event_applicant_event_round_member
-    ON event.event_applicant (event_id, round_id, member_id)
+CREATE UNIQUE INDEX uq_event_applicant_round_member_id
+    ON promotion.event_applicant (round_id, member_id)
     WHERE is_deleted = FALSE;
 ```
 
@@ -53,7 +53,7 @@ idempotency_key = event_id + round_id + member_id
 
 - 같은 출석 요청이 동시에 2번 들어온다.
 - 둘 다 insert를 시도할 수 있다.
-- 최종적으로는 `uq_event_applicant_event_round_member`가 한 건만 허용한다.
+- 최종적으로는 `uq_event_applicant_round_member_id`가 한 건만 허용한다.
 
 ### 2. point retry
 
@@ -63,7 +63,7 @@ idempotency_key = event_id + round_id + member_id
 ### 3. client retry
 
 - 프론트가 같은 출석 요청을 다시 보낸다.
-- `event_applicant` unique가 중복 출석을 막는다.
+- `event_applicant (round_id, member_id)` unique가 중복 출석을 막는다.
 
 ### 4. point timeout
 

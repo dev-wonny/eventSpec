@@ -1,6 +1,6 @@
 # Test Scenarios
 
-이 문서는 출석체크 구현 완료 여부를 판단하는 테스트 기준이다. 현재는 DDL과 도메인 설명, 확정된 `event_entry.event_id`, `event_entry.round_id` 규칙을 반영해 작성한다.
+이 문서는 출석체크 구현 완료 여부를 판단하는 테스트 기준이다. 현재는 DDL과 도메인 설명, 확정된 `event_entry.event_id` 유지 및 `applicant_id -> event_applicant.round_id` 회차 파생 규칙을 반영해 작성한다.
 
 ## 기능 시나리오
 
@@ -8,13 +8,13 @@
 | --- | --- | --- | --- |
 | ATT-TEST-001 | 보상 매핑이 있는 회차의 첫 출석 요청 | `event_applicant`, `event_entry`, `event_win`이 먼저 커밋되고 외부 point API가 후행 호출된다 | ATT-RULE-002, ATT-RULE-003, ATT-RULE-004, ATT-RULE-009, ATT-RULE-012 |
 | ATT-TEST-002 | 보상 매핑이 있는 다른 날짜 회차 재출석 요청 | 다른 회차의 `event_applicant`, `event_entry`, `event_win`이 새로 저장되고 커밋 후 외부 point API가 호출된다 | ATT-RULE-001, ATT-RULE-003, ATT-RULE-004, ATT-RULE-009, ATT-RULE-012 |
-| ATT-TEST-003 | 같은 `event_id + round_id + member_id`로 재응모 요청 | `uq_event_applicant_event_round_member` 기준으로 중복 출석을 막고 추가 applicant가 생기지 않는다 | ATT-RULE-005 |
+| ATT-TEST-003 | 같은 `round_id + member_id`로 재응모 요청 | `uq_event_applicant_round_member_id` 기준으로 중복 출석을 막고 추가 applicant가 생기지 않는다 | ATT-RULE-005 |
 | ATT-TEST-004 | 존재하지 않는 이벤트 또는 회차로 요청 | `EVENT_NOT_FOUND` 또는 `EVENT_ROUND_NOT_FOUND`를 반환한다 | ATT-RULE-006 |
 | ATT-TEST-005 | 이벤트와 회차가 서로 맞지 않는 요청 | `ROUND_EVENT_MISMATCH`를 반환한다 | ATT-RULE-006 |
 | ATT-TEST-006 | 비활성/삭제/기간 외 이벤트 또는 회차 요청 | 출석 불가 상태에 맞는 domain code(`EVENT_NOT_ACTIVE`, `EVENT_NOT_STARTED`, `EVENT_EXPIRED`)와 안내형 메시지를 반환한다 | ATT-RULE-002 |
-| ATT-TEST-007 | 동일 `event_id + round_id + member_id` 조건의 동시 출석 요청 2건 이상 발생 | Service 중복 검증과 `uq_event_applicant_event_round_member` unique에 의해 최종 유효 applicant는 한 건만 남고, 나머지는 `ENTRY_ALREADY_APPLIED`로 정리된다 | ATT-RULE-005, ATT-RULE-007 |
+| ATT-TEST-007 | 동일 `round_id + member_id` 조건의 동시 출석 요청 2건 이상 발생 | Service 중복 검증과 `uq_event_applicant_round_member_id` unique에 의해 최종 유효 applicant는 한 건만 남고, 나머지는 `ENTRY_ALREADY_APPLIED`로 정리된다 | ATT-RULE-005, ATT-RULE-007 |
 | ATT-TEST-008 | `GET /events/{eventId}`를 `X-Member-Id`와 함께 호출 | 각 회차의 `ATTENDED / MISSED / TODAY / FUTURE` 상태와 보상 이력이 일관되게 반환된다 | ATT-RULE-006, ATT-RULE-008, ATT-RULE-009, ATT-RULE-014 |
-| ATT-TEST-009 | 같은 회원이 여러 날짜 회차에 출석 요청 | `event_applicant`는 `event_id + round_id + member_id` 기준으로 각 날짜마다 한 건씩 생성된다 | ATT-RULE-003, ATT-RULE-006 |
+| ATT-TEST-009 | 같은 회원이 여러 날짜 회차에 출석 요청 | `event_applicant`는 `round_id + member_id` 기준으로 각 날짜마다 한 건씩 생성된다 | ATT-RULE-003, ATT-RULE-006 |
 | ATT-TEST-010 | 월간 이벤트의 마지막 날짜 회차 출석 요청 | 올바른 `event_round`가 선택되고 출석이 저장된다 | ATT-RULE-001, ATT-RULE-002 |
 | ATT-TEST-011 | 외부 point API 실패 | 로컬 `event_applicant`, `event_entry`, `event_win`은 유지되고 오류 로그와 운영 알림이 남는다 | ATT-RULE-009, ATT-RULE-012 |
 | ATT-TEST-012 | 외부 point API 무응답 또는 타임아웃 | 로컬 데이터는 유지되고 운영 알림 대상이 되며 사용자 응답은 출석 성공으로 유지된다 | ATT-RULE-012, ATT-RULE-013 |
@@ -71,13 +71,13 @@
 - 단위 테스트: 회차 판정, applicant 생성 판정, 중복 정책, 상태 계산
 - 통합 테스트: API 요청/응답, 외부 point API 성공/실패, 로컬 커밋 유지 여부
 - 통합 테스트: API 요청/응답, 동시 출석 요청, point API idempotency, 외부 point API 성공/실패, 운영 알림 처리
-- 저장소 테스트: 회차별 applicant 조회, `event_id + round_id + member_id` 기준 applicant 중복 검증, 이벤트-회차 정합성 검증, 출석 회차의 단일 prize 매핑 조회, 지급 이력 조회
+- 저장소 테스트: 회차별 applicant 조회, `round_id + member_id` 기준 applicant 중복 검증, 이벤트-회차 정합성 검증, 출석 회차의 단일 prize 매핑 조회, 지급 이력 조회
 
 ## 추가 확정 시 보강 항목
 
 - 필수 요청 필드별 validation 케이스
 - 실제 에러 코드와 메시지 매핑
-- DDL에 FK가 제거되고, `uq_event_round_event_round_no`, `uq_event_applicant_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 반영되는지 테스트
+- DDL에 최소 FK와 `uq_event_round_event_round_no`, `uq_event_applicant_round_member_id`, `uq_event_win_entry_id`가 반영되는지 테스트
 - 외부 point API 타임아웃 및 재시도 정책 테스트
 - point API client의 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초` 설정 테스트
 - `idempotency_key = event_id + round_id + member_id` 전달 및 중복 지급 방지 테스트

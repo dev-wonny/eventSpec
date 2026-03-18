@@ -1,6 +1,6 @@
 # Service Validation
 
-이 문서는 출석체크 구현 시 Service 레이어에서 반드시 검증해야 하는 규칙을 정리한다. FK 없이 운영하고 최소 unique만 두는 전제를 기준으로, API 요청 시점에 판단해야 하는 업무 규칙을 중심으로 작성한다.
+이 문서는 출석체크 구현 시 Service 레이어에서 반드시 검증해야 하는 규칙을 정리한다. 최소 FK와 최소 unique를 함께 두는 전제를 기준으로, API 요청 시점에 판단해야 하는 업무 규칙을 중심으로 작성한다.
 
 ## 목적
 
@@ -11,7 +11,7 @@
 ## 검증 원칙
 
 - 출석 요청은 `POST /event/v1/events/{eventId}/rounds/{roundId}/entries` 진입 시 Service에서 검증한다.
-- FK 없이 운영하므로 참조 정합성은 Service에서 명시적으로 검증한다.
+- DB FK가 보호하지 않는 값참조 정합성은 Service에서 명시적으로 검증한다.
 - DB에는 최소 unique만 두고, 업무 규칙은 Service가 우선 보장한다.
 - 출석체크 전용 규칙과 공용 이벤트 규칙을 구분한다.
 - 검증 실패는 저장 전에 종료하는 것을 기본으로 한다.
@@ -50,7 +50,7 @@
 
 - `event_round`가 존재해야 한다.
 - 요청 `roundId`의 `event_id`가 요청 `eventId`와 일치해야 한다.
-- `event_round`는 `event_id`에 대한 FK가 아니므로, `round` 조회 시 `id`와 `event_id`를 함께 조건으로 사용해야 한다.
+- `event_round.event_id`는 FK로 보호되지만, 요청 `eventId`와 회차의 연결을 확인하려면 `id`와 `event_id`를 함께 조건으로 조회해야 한다.
 - 회차 시간 정책을 사용하면 `round_start_at ~ round_end_at`도 함께 검증한다.
 
 ```sql
@@ -70,18 +70,18 @@ if (!round.getEventId().equals(eventId)) {
 
 ### ATT-SVC-004 applicant 기준 생성 가능 여부 검증
 
-- `event_applicant`는 `(event_id, round_id, member_id)` 기준 회차별 applicant 테이블로 사용한다.
+- `event_applicant`는 `(round_id, member_id)` 기준 회차별 applicant 테이블로 사용한다.
 - 이번 범위에서는 회원별 사전 참여 가능 대상 조회/검사를 하지 않는다.
 - applicant 중복은 사전 조회보다 insert 시도와 unique 충돌 처리로 제어한다.
-- `event_applicant.round_id`는 `NULL`이면 안 되고 요청 `roundId`와 같아야 한다.
-- `event_applicant.event_id`가 요청 `eventId`와 일치해야 한다.
+- `event_applicant.round_id`는 FK 컬럼이며 `NULL`이면 안 되고 요청 `roundId`와 같아야 한다.
+- `event_applicant.event_id`는 조회용 값참조 컬럼이며 요청 `eventId`, `round.event_id`와 일치해야 한다.
 - applicant 생성 성공 후에만 실제 `event_entry`를 저장한다.
 
 ### ATT-SVC-005 중복 출석 검증
 
-- 중복 출석 기준은 `event_applicant`의 `event_id + round_id + member_id`다.
+- 중복 출석 기준은 `event_applicant`의 `round_id + member_id`다.
 - 같은 키의 applicant insert가 unique 충돌이면 `이미 출석했습니다`로 종료한다.
-- 동시 요청 상황에서는 `uq_event_applicant_event_round_member` unique 충돌도 함께 처리해야 한다.
+- 동시 요청 상황에서는 `uq_event_applicant_round_member_id` unique 충돌도 함께 처리해야 한다.
 - `event_entry`는 응모권 테이블이므로 중복 출석 제어용 unique를 갖지 않는다.
 
 ### ATT-SVC-006 출석 회차 보상 매핑 검증
@@ -121,9 +121,8 @@ if (!round.getEventId().equals(eventId)) {
 
 ## DB만으로 보장되지 않는 항목
 
-- `round.event_id == event.id`
 - `event_applicant.event_id == event.id`
-- `event_applicant.round_id`가 비어 있지 않고 같은 `event_id`의 회차를 가리키는지
+- `event_entry.applicant_id == event_applicant.id`
 - `event_win.entry_id == event_entry.id`
 - 출석체크 회차당 active `event_round_prize = 0..1`
 - 출석 회차 보상은 `POINT`만 허용
@@ -132,7 +131,8 @@ if (!round.getEventId().equals(eventId)) {
 
 ## 구현 메모
 
-- 최소 unique는 `uq_event_round_event_round_no`, `uq_event_applicant_event_round_member`, `uq_event_win_entry_id`만 유지한다.
+- 최소 FK는 `fk_event_round_event`, `fk_event_round_prize_round`, `fk_event_round_prize_prize`, `fk_event_round_prize_probability_round`, `fk_event_round_prize_probability_round_prize`, `fk_event_applicant_round`를 유지한다.
+- 최소 unique는 `uq_event_round_event_round_no`, `uq_event_applicant_round_member_id`, `uq_event_win_entry_id`를 유지한다.
 - 출석체크와 랜덤 리워드는 `event_round_prize`를 공유하므로, 출석 전용 제약은 Service에서 `event_type = ATTENDANCE`일 때만 적용한다.
 - applicant는 요청 시 생성하므로, Service는 사전 조회 없이 applicant insert와 unique 충돌 변환을 정확히 처리해야 한다.
 - 동시성 제어는 조회만으로 끝내지 말고 락, 최소 unique 충돌 처리, 재검증 전략을 함께 고려한다.

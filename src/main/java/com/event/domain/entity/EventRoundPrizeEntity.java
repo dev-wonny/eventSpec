@@ -14,9 +14,9 @@ import org.hibernate.annotations.SQLDelete;
 
 @Getter
 @Entity
-@Table(name = "event_round_prize", schema = "event")
+@Table(name = "event_round_prize", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event_round_prize SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event_round_prize SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 public class EventRoundPrizeEntity extends BaseEntity {
 
     @Id

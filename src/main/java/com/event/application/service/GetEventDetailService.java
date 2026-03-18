@@ -13,7 +13,6 @@ import com.event.application.port.output.EventRoundQueryPort;
 import com.event.application.port.output.EventWinQueryPort;
 import com.event.application.port.output.PrizeQueryPort;
 import com.event.common.util.AppTimeZones;
-import com.event.domain.entity.EventEntryEntity;
 import com.event.domain.entity.EventEntity;
 import com.event.domain.entity.EventRoundEntity;
 import com.event.domain.entity.EventRoundPrizeEntity;
@@ -75,12 +74,12 @@ public class GetEventDetailService implements GetEventDetailUseCase {
             );
         }
 
-        List<EventEntryEntity> entries = eventEntryQueryPort.findByEventIdAndMemberId(query.eventId(), query.memberId());
         List<EventWinEntity> wins = eventWinQueryPort.findByEventIdAndMemberId(query.eventId(), query.memberId());
 
-        Set<Long> attendedRoundIds = entries.stream()
-                .map(EventEntryEntity::getRoundId)
-                .collect(Collectors.toSet());
+        Set<Long> attendedRoundIds = eventEntryQueryPort.findAttendedRoundIdsByEventIdAndMemberId(
+                query.eventId(),
+                query.memberId()
+        );
 
         Map<Long, EventWinEntity> winByRoundId = wins.stream()
                 .collect(Collectors.toMap(

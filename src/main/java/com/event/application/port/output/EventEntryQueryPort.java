@@ -1,14 +1,10 @@
 package com.event.application.port.output;
 
-import com.event.domain.entity.EventEntryEntity;
-import java.util.List;
+import java.util.Set;
 
 public interface EventEntryQueryPort {
 
-    boolean existsByEventIdAndRoundIdAndMemberId(Long eventId, Long roundId, Long memberId);
-
     long countByEventIdAndMemberId(Long eventId, Long memberId);
 
-    List<EventEntryEntity> findByEventIdAndMemberId(Long eventId, Long memberId);
+    Set<Long> findAttendedRoundIdsByEventIdAndMemberId(Long eventId, Long memberId);
 }
-

@@ -21,9 +21,9 @@ import org.hibernate.annotations.SQLRestriction;
 @Getter
 @Entity
 @DynamicUpdate
-@Table(name = "event", schema = "event")
+@Table(name = "event", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class EventEntity extends BaseEntity {
 
@@ -35,7 +35,7 @@ public class EventEntity extends BaseEntity {
     private String eventName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false, length = 30)
+    @Column(name = "event_type", nullable = false, length = 50)
     private EventType eventType;
 
     @Column(name = "start_at", nullable = false)
@@ -124,4 +124,3 @@ public class EventEntity extends BaseEntity {
         this.description = description;
     }
 }
-

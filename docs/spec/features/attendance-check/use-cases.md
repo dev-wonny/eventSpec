@@ -22,20 +22,20 @@
 - 요청에는 `X-Member-Id`가 포함되어야 한다.
 - `event_applicant`는 사전 참여 가능 대상자 테이블이 아니라 회차별 applicant 기준 테이블로 해석해야 한다.
 - 이번 출석체크에서는 회원별 사전 참여 가능 대상 체크를 두지 않는다.
-- FK가 없으므로 서버는 `round.event_id == eventId`를 Service에서 반드시 검증해야 한다.
-- 출석 요청 시 서버는 `event_applicant`를 `event_id + round_id + member_id` 기준으로 한 건만 생성해야 한다.
+- `event_round.event_id`는 FK로 보호되더라도, 서버는 요청 `eventId`와 `round.event_id`가 일치하는지 Service에서 검증해야 한다.
+- 출석 요청 시 서버는 `event_applicant`를 `round_id + member_id` 기준으로 한 건만 생성해야 한다.
 - 출석체크는 회차당 보상 매핑이 최대 1개다.
-- 출석 성공 시 `event_entry`가 `event_id`, `round_id`와 함께 저장된다.
-- 추첨형 이벤트에서는 같은 회차에도 여러 `event_entry`가 들어갈 수 있고, `is_winner`는 나중에 update될 수 있다.
+- 출석 성공 시 `event_entry`는 `event_id`, `applicant_id`, `member_id`를 저장하고 회차는 applicant를 통해 해석한다.
+- 추첨형 이벤트에서는 같은 회차에도 여러 `event_entry`가 들어갈 수 있고, 최초 `is_winner = false`에서 나중에 update될 수 있다.
 - 출석체크형 이벤트는 즉시 보상이므로 `event_entry.is_winner = true`로 저장한다.
 - 회차에 point 보상 매핑이 있으면 로컬 당첨/보상 확정 이력이 `event_win`에 남아야 한다.
 - 회차에 보상 매핑이 없으면 point는 지급하지 않고 `event_win`도 생성하지 않는다.
-- FK는 두지 않으므로 이벤트-회차, applicant-이벤트 정합성은 Service에서 검증해야 한다.
+- `event_applicant.round_id`는 FK로 보호하고, applicant-이벤트 값참조 정합성은 Service에서 검증해야 한다.
 
 ### ATT-REQ-003 중복 출석은 통제되어야 한다
 
-- 동일 참여자는 동일 `eventId + roundId + memberId` 기준으로 `event_applicant`가 한 번만 생성되어야 한다.
-- 출석체크 이벤트에서는 오늘 날짜 회차가 `roundId`가 되므로, 같은 날짜 재요청은 같은 `eventId + roundId + memberId` 재요청이다.
+- 동일 참여자는 동일 `roundId + memberId` 기준으로 `event_applicant`가 한 번만 생성되어야 한다.
+- 출석체크 이벤트에서는 오늘 날짜 회차가 `roundId`가 되므로, 같은 날짜 재요청은 같은 `roundId + memberId` 재요청이다.
 - 다른 날짜의 회차에는 다시 출석할 수 있어야 한다.
 - 중복 요청 시 출석 실패로 처리하고, 프론트에는 `이미 출석했습니다`를 노출한다.
 
@@ -66,7 +66,7 @@
 2. 참여자가 특정 회차에 대한 출석 요청을 보낸다.
 3. 시스템이 이벤트, 회차, 시간 조건을 검증한다.
 4. 시스템이 `round.event_id == event.id`인지 검증한다.
-5. 시스템이 같은 `event_id + round_id + member_id` 기준으로 `event_applicant` 생성을 바로 시도한다.
+5. 시스템이 같은 `round_id + member_id` 기준으로 `event_applicant` 생성을 바로 시도한다.
 6. 같은 키의 applicant가 이미 있으면 중복 출석으로 종료한다.
 7. applicant 생성이 가능하면 해당 회차의 applicant를 저장한다.
 8. 시스템이 회차에 연결된 보상 매핑이 있는지 확인한다.
@@ -89,7 +89,7 @@
 ### UC-03 동일 날짜 중복 출석 시도
 
 1. 참여자가 이미 출석한 같은 회차 또는 같은 날짜 기준으로 다시 요청한다.
-2. 시스템이 같은 `event_id + round_id + member_id` 기준으로 applicant를 insert하려고 시도한다.
+2. 시스템이 같은 `round_id + member_id` 기준으로 applicant를 insert하려고 시도한다.
 3. 시스템이 unique 충돌을 중복 출석으로 판단한다.
 4. 시스템이 프론트에 `이미 출석했습니다` 오류를 반환한다.
 
@@ -124,4 +124,5 @@
 - 인증/인가 방식은 아직 미정이다.
 - 현재 외부 API는 2개만 제공하고, admin 기능은 범위 밖이다.
 - `event_applicant`는 별도 관리 API로 적재하지 않고 출석 요청 시 생성한다.
+- DB 스키마는 `promotion`을 사용하고, 시간 컬럼은 `TIMESTAMP`로 관리하며 애플리케이션 기준 타임존은 `Asia/Seoul`이다.
 - 현재는 외부 보상 API를 같은 요청 처리 안에서 동기 호출하지만, 로컬 트랜잭션 커밋 이후 단계로 분리한다.

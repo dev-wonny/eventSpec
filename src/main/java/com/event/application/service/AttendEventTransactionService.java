@@ -106,7 +106,7 @@ public class AttendEventTransactionService {
                     command.eventId(),
                     command.roundId(),
                     command.memberId(),
-                    String.valueOf(command.memberId())
+                    command.memberId()
             ));
         } catch (DataIntegrityViolationException ex) {
             throw BusinessException.from(EntryCode.ENTRY_ALREADY_APPLIED);

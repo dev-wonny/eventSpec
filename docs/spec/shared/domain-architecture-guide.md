@@ -414,16 +414,16 @@ QueryDSL은 `Infrastructure` 계층에서만 사용한다.
 주요 컬럼:
 
 - `event_id`
-- `round_id`
+- `applicant_id`
 - `member_id`
 - `applied_at`
 
-중복 응모 방지는 DB unique와 application validation을 함께 사용한다.
+출석 이벤트의 중복 참여 방지는 `event_applicant` unique와 application validation을 함께 사용한다.
 
 예:
 
 ```text
-UNIQUE(event_id, round_id, member_id)
+UNIQUE(round_id, member_id)
 ```
 
 ## 17. 동시성 제어
@@ -444,12 +444,12 @@ UNIQUE(event_id, round_id, member_id)
 
 DB 타입:
 
-- `TIMESTAMPTZ`
+- `TIMESTAMP`
 
 Java 타입 추천:
 
-- `LocalDateTime`
-- 필요 시 `ZonedDateTime`
+- 현재 구현은 `Instant`를 사용한다.
+- DB/JDBC 타임존은 `Asia/Seoul`로 맞춘다.
 
 이벤트 시스템은 한국 시간(`Asia/Seoul`) 기준 운영을 기본으로 한다.
 

@@ -29,11 +29,10 @@ public class PointAttendanceProcessor implements AttendanceProcessor {
             int attendedDays,
             int totalDays
     ) {
-        String actor = String.valueOf(memberId);
+        Long actor = memberId;
         EventEntryEntity eventEntry = EventEntryEntity.create(
                 applicant.getId(),
                 applicant.getEventId(),
-                round.getId(),
                 memberId,
                 rewardInfo != null ? rewardInfo.eventRoundPrizeId() : null,
                 rewardInfo != null,

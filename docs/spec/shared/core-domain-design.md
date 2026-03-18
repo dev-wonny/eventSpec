@@ -153,25 +153,25 @@ EventWin
 
 - `id`
 - `event_id`
-- `round_id`
+- `applicant_id`
 - `member_id`
 - `applied_at`
 
 역할:
 
 - 참여 기록 저장
-- 중복 참여 방지
+- applicant 기준 회차 파생
 - 참여 통계 생성의 기준 데이터 제공
 
-중복 응모 방지:
+중복 출석 방지:
 
-- DB Unique Constraint 사용
+- `event_applicant`의 DB Unique Constraint 사용
 - Application validation 사용
 
 현재 기준:
 
 ```text
-UNIQUE(event_id, round_id, member_id)
+UNIQUE(event_applicant.round_id, event_applicant.member_id)
 ```
 
 복수 응모 이벤트인 경우에는 `is_multiple_entry` 정책을 함께 확인한다.
@@ -280,7 +280,7 @@ EventEntry 생성
 
 원칙:
 
-- `weight`는 DB 기본값 `1`을 사용한다.
+- `weight` 기본값은 `1`이다.
 - 모든 보상의 `weight`가 `1`이면 균등 추첨으로 해석한다.
 - 특정 보상의 당첨 비중을 높이고 싶을 때만 `weight`를 증가시킨다.
 - 현재 기준에서 계산의 기본축은 `probability`보다 `weight`다.
@@ -309,7 +309,7 @@ weight 구간에 따라 Prize를 선택한다.
 
 위 경우 최종 비중은 `1 : 1 : 3`이다.
 
-현재 스키마에서는 `event_round_prize_probability.weight`를 DB 기본값 `1`로 두고 기본 계산값으로 사용한다. `probability`는 향후 보정 규칙이 필요할 때 확장적으로 해석할 수 있다.
+현재 스키마에서는 `event_round_prize_probability.weight` 기본값을 `1`로 두고, `probability`는 향후 보정 규칙이 필요할 때 확장적으로 해석할 수 있다.
 
 ## 10. 동시성 문제
 

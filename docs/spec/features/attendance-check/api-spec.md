@@ -95,15 +95,16 @@ public BaseResponse<EventEntryResponse> enterEvent(
 ### 동작 규칙
 
 - `event_applicant`는 사전 참여 가능 대상자 테이블이 아니라 회차별 applicant 기준 테이블이다.
-- `event_applicant`는 `(event_id, round_id, member_id)` unique로 동작한다.
+- `event_applicant`는 `(round_id, member_id)` unique로 동작한다.
 - `event_applicant`는 별도 관리 API 없이 출석 요청 시 `eventId + roundId + memberId` 기준으로 생성한다.
 - 회원별 사전 참여 가능 대상 체크는 하지 않고, applicant insert와 unique 충돌로 중복 출석을 제어한다.
-- FK는 두지 않으므로 서버는 `round.event_id == eventId`, `event_applicant.event_id == eventId`도 Service에서 검증해야 한다.
+- `event_round.event_id`와 `event_applicant.round_id`는 FK로 보호한다.
+- 서버는 요청 `eventId == round.event_id`, `event_applicant.event_id == eventId` 같은 값참조 정합성은 Service에서 검증해야 한다.
 - `event_round` 조회는 `roundId` 단독이 아니라 `roundId + eventId`로 함께 조회하는 방식을 권장한다.
 - `event_entry`는 실제 응모권/참여 이력 테이블이다.
-- 출석 이벤트에서 `event_entry`는 일별 출석 여부를 판단할 수 있도록 `event_id`, `round_id`를 가진다.
+- 출석 이벤트에서 `event_entry`는 `event_id`, `applicant_id`, `member_id`를 저장하고 회차는 `applicant_id -> event_applicant.round_id`로 해석한다.
 - 같은 회차에도 여러 `event_entry`가 들어갈 수 있고, 추첨형 이벤트에서는 `is_winner`가 나중에 update될 수 있다.
-- 출석 중복 체크의 비즈니스 기준은 `event_applicant`의 `eventId + roundId + memberId`다.
+- 출석 중복 체크의 비즈니스 기준은 `event_applicant`의 `roundId + memberId`다.
 - 출석체크형 이벤트에서는 `roundId = 해당 날짜 회차`다.
 - 출석체크형 이벤트는 회차당 보상 매핑이 최대 1개다.
 - 회차에 보상 매핑이 있으면 `event_entry`, `event_win`까지 먼저 저장하고 로컬 트랜잭션 커밋 후 외부 point API를 호출한다.
@@ -423,12 +424,11 @@ public BaseResponse<EventDetailResponse> getEvent(
 
 ## API 기준 스키마 정합화 포인트
 
-- 신규 환경용 schema draft는 FK를 두지 않는다.
-- 신규 환경용 schema draft는 `event_applicant (event_id, round_id, member_id)` unique를 반영한다.
-  - 제공된 원본 DDL unique는 `(round_id, member_id)`였다.
-- 신규 환경용 schema draft는 `event_entry.event_id`, `event_entry.round_id` 추가를 반영하고 `event_entry` unique는 두지 않는다.
-  - 출석 이벤트에서 매일 출석 여부를 체크해야 하기 때문이다.
-  - 제공된 원본 DDL에는 `event_id`, `round_id` 컬럼이 없었다.
-- 신규 환경용 schema draft는 최소 unique로 `uq_event_round_event_round_no`, `uq_event_applicant_event_round_member`, `uq_event_win_entry_id`만 유지한다.
+- 신규 환경용 schema draft는 `promotion` 스키마와 최소 FK를 반영한다.
+- 신규 환경용 schema draft는 `event_applicant (round_id, member_id)` unique를 반영한다.
+- 신규 환경용 schema draft는 `event_entry.event_id`를 유지하고 `round_id`는 제거하며, 회차는 `applicant_id -> event_applicant.round_id`로 파생한다.
+  - 출석 이벤트에서 회차는 applicant 조인으로 복원할 수 있다.
+  - 제공된 원본 DDL에는 `event_id` 컬럼이 없었고, 이번 정리에서는 `round_id`는 다시 제거했다.
+- 신규 환경용 schema draft는 최소 unique로 `uq_event_round_event_round_no`, `uq_event_applicant_round_member_id`, `uq_event_win_entry_id`를 유지한다.
 - `GET /events/{eventId}`는 회차별 출석 상태와 win 정보를 반환해야 한다.
   - 따라서 `event_entry`, `event_win`, `event_round` 연결 전략이 스키마와 조회 쿼리에 함께 반영되어야 한다.

@@ -15,9 +15,9 @@ import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "event_win", schema = "event")
+@Table(name = "event_win", schema = "promotion")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE event.event_win SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE promotion.event_win SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = ?")
 @SQLRestriction("is_deleted = FALSE")
 public class EventWinEntity extends BaseEntity {
 
@@ -63,7 +63,7 @@ public class EventWinEntity extends BaseEntity {
             Long eventId,
             Long memberId,
             Long eventRoundPrizeId,
-            String actor
+            Long actor
     ) {
         EventWinEntity entity = EventWinEntity.builder()
                 .entryId(entryId)
