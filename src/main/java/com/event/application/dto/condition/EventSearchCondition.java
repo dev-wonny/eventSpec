@@ -12,6 +12,10 @@ public record EventSearchCondition(
         Long supplierId
 ) implements SearchCondition {
 
+    public static EventSearchCondition empty() {
+        return EventSearchCondition.builder().build();
+    }
+
     public static EventSearchCondition of(
             String eventName,
             EventType eventType,

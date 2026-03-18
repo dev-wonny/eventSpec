@@ -99,8 +99,8 @@ SELECT
 FROM event.event e
 JOIN event.event_round r
     ON r.event_id = e.id
-   AND r.round_no = 1
-WHERE e.event_name = '2026년 3월 출석체크 이벤트';
+WHERE e.event_name = '2026년 3월 출석체크 이벤트'
+  AND r.round_no IN (1, 2, 5);
 
 INSERT INTO event.event_round_prize (
     round_id,
@@ -148,10 +148,10 @@ SELECT
     'seed',
     'seed'
 FROM event.event_applicant a
+JOIN event.event_round r
+    ON r.id = a.round_id
 JOIN event.event e
     ON e.id = a.event_id
-JOIN event.event_round r
-    ON r.event_id = e.id
 JOIN event.event_round_prize erp
     ON erp.round_id = r.id
 WHERE e.event_name = '2026년 3월 출석체크 이벤트'

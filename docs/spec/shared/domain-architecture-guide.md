@@ -343,23 +343,23 @@ Repository는 Hexagonal 구조를 따른다.
 
 예:
 
-- `EventRepositoryPort`
-- `EventRepositoryAdapter`
+- `EventQueryPort`
+- `EventQueryImpl`
 - `EventJpaRepository`
 
 구조:
 
 ```text
-EventRepositoryPort
-    -> EventRepositoryAdapter
+EventQueryPort
+    -> EventQueryImpl
         -> EventJpaRepository
 ```
 
 원칙:
 
 - Repository Port는 `application.port.output`에 둔다.
-- Repository Adapter는 `infrastructure.persistence`에 둔다.
-- QueryDSL은 Adapter 내부에서 사용한다.
+- Repository Impl은 `infrastructure.persistence`에 둔다.
+- QueryDSL은 Impl 내부에서 사용한다.
 - 저장은 JPA Entity 기반으로 처리하고, 조회는 QueryDSL 기반 개별 조회 포트를 조합하는 방식을 우선 사용한다.
 
 ## 14. QueryDSL 사용 규칙
@@ -388,13 +388,12 @@ QueryDSL은 `Infrastructure` 계층에서만 사용한다.
 
 예:
 
-- `ConditionBuilder`
-- `EventConditionBuilder`
+- `EventEntityBuilder`
 
 책임:
 
 - 검색 조건 생성
-- `Predicate` 생성
+- `BooleanBuilder` 생성
 
 목적:
 
@@ -403,8 +402,8 @@ QueryDSL은 `Infrastructure` 계층에서만 사용한다.
 
 권장 규칙:
 
-- 클래스명은 `EventEntityBuilder`보다 `EventConditionBuilder`처럼 조건 목적이 드러나게 짓는다.
-- `ConditionBuilder` 인터페이스는 `BooleanBuilder`보다 상위 타입인 `Predicate`를 반환해 구현 유연성을 유지한다.
+- 클래스명은 엔티티 기준 검색 조건을 드러내도록 `EventEntityBuilder` 형태를 사용한다.
+- `impl/*Impl`은 builder가 만든 조건을 받아 QueryDSL 쿼리를 직접 구성한다.
 - `EventSearchCondition.eventType`은 `String`보다 `EventType` enum 사용을 권장한다.
 - 조회 DTO 조립은 QueryDSL builder가 아니라 `Application Service` 또는 assembler가 담당한다.
 
@@ -517,7 +516,7 @@ Controller
         -> DomainService
         -> EventPolicy
         -> RepositoryPort
-            -> RepositoryAdapter
+            -> *Impl
                 -> EventEntity
 ```
 
@@ -527,7 +526,7 @@ Controller
 - `EventPolicy`: 이벤트 타입별 정책
 - `DomainService`: 도메인 규칙 판단
 - `ApplicationService`: 유스케이스 실행
-- `RepositoryAdapter`: DB 접근
+- `*Impl`: DB 접근
 
 ## 22. 설계 핵심 원칙
 

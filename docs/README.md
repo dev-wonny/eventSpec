@@ -12,6 +12,8 @@
 - 도메인 아키텍처 기준: `docs/spec/shared/domain-architecture-guide.md`
 - 코어 도메인 기준: `docs/spec/shared/core-domain-design.md`
 - 엔티티 예제 기준: `docs/spec/shared/entity-example-guide.md`
+- 조회 전략 기준: `docs/spec/shared/query-strategy-guide.md`
+- 주석 작성 기준: `docs/spec/shared/comment-writing-guide.md`
 - 로그/관측성 기준: `docs/spec/shared/logging-observability-spec.md`
 - 응답/코드 패키지 기준: `docs/spec/shared/code-package-response-spec.md`
 - 기술 스택 기준: `docs/spec/shared/tech-stack.md`

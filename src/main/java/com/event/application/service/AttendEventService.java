@@ -48,6 +48,7 @@ public class AttendEventService implements AttendEventUseCase {
     @Override
     @Transactional
     public AttendEventResult attend(AttendEventCommand command) {
+        // 이벤트, 회차, 참여 신청자 정보를 먼저 조회해 출석 처리에 필요한 기본 데이터를 준비한다.
         EventEntity event = eventQueryPort.findById(command.eventId())
                 .orElseThrow(() -> BusinessException.from(EventCode.EVENT_NOT_FOUND));
 
@@ -63,12 +64,15 @@ public class AttendEventService implements AttendEventUseCase {
                 command.memberId()
         );
 
+        // 현재 회차에 연결된 활성 보상과 실제 지급할 경품 정보를 조회한다.
         List<EventRoundPrizeEntity> eventRoundPrizes = eventRoundPrizeQueryPort.findActiveByRoundId(command.roundId());
         PrizeEntity prize = resolvePrize(eventRoundPrizes);
 
+        // 도메인 규칙으로 출석 가능 여부와 보상 지급 가능 여부를 검증한다.
         attendanceDomainService.validateAttendable(event, round, applicant, alreadyApplied, Instant.now());
         attendanceDomainService.validateAttendanceReward(eventRoundPrizes, prize);
 
+        // 출석 성공 시 응답에 포함할 보상 정보를 구성한다.
         AttendanceRewardInfo rewardInfo = null;
         if (!eventRoundPrizes.isEmpty() && prize != null) {
             EventRoundPrizeEntity eventRoundPrize = eventRoundPrizes.getFirst();
@@ -81,6 +85,7 @@ public class AttendEventService implements AttendEventUseCase {
             );
         }
 
+        // 이번 출석을 포함한 누적 출석일 수와 전체 회차 수를 계산한다.
         int attendedDays = Math.toIntExact(eventEntryQueryPort.countByEventIdAndMemberId(
                 command.eventId(),
                 command.memberId()
@@ -88,6 +93,7 @@ public class AttendEventService implements AttendEventUseCase {
         int totalDays = Math.toIntExact(eventRoundQueryPort.countByEventId(command.eventId()));
 
         try {
+            // 실제 출석 저장, 보상 지급, 결과 생성은 processor에 위임한다.
             return attendanceProcessor.process(
                     applicant,
                     round,
@@ -130,10 +136,12 @@ public class AttendEventService implements AttendEventUseCase {
     }
 
     private PrizeEntity resolvePrize(List<EventRoundPrizeEntity> eventRoundPrizes) {
+        // 회차 보상이 없으면 지급할 경품도 없으므로 null을 반환한다.
         if (eventRoundPrizes.isEmpty()) {
             return null;
         }
 
+        // 현재 구현은 첫 번째 활성 보상 기준으로 실제 경품 정보를 조회한다.
         return prizeQueryPort.findById(eventRoundPrizes.getFirst().getPrizeId())
                 .orElse(null);
     }

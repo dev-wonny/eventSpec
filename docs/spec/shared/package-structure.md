@@ -201,7 +201,7 @@ Presentation (Controller)
 - 도메인 규칙 판단은 `domain.service`에 위임
 - 응모 규칙 자체가 아니라 응모 유스케이스 실행 책임을 가진다
 - 응답용 DTO / read model 조립 책임을 가진다
-- 조회는 QueryDSL로 필요한 데이터와 엔티티를 각각 불러와 조립한다
+- 조회 전략은 `JpaRepository 기본 + QueryDSL 선택` 원칙을 따른다
 
 예시 클래스:
 
@@ -217,7 +217,11 @@ Presentation (Controller)
 원칙:
 
 - 저장과 상태 변경은 JPA Entity를 기준으로 처리한다.
-- 조회는 QueryDSL로 필요한 엔티티/필드/집계 값을 각각 따로 조회한다.
+- 고정 조건 단순 조회는 `JpaRepository` 파생 메서드를 우선 사용한다.
+- 동적 조건 검색, 조인, projection, 집계가 필요한 조회만 QueryDSL을 사용한다.
+- QueryDSL 조회는 `impl/*Impl`에서 직접 처리한다.
+- 검색 조건 조합은 `builder` 패키지의 `...EntityBuilder`에 위임한다.
+- 세부 기준은 `docs/spec/shared/query-strategy-guide.md`를 따른다.
 - `event -> rounds -> prizes` 같은 연관을 JPA 컬렉션 순회나 join fetch로 풀지 않는다.
 - `Application Service`가 `event`, `round`, `applicant`, `entry`, `prize` 등을 각각 조회한 뒤 유스케이스에 맞게 조립한다.
 - 상태 변경 유스케이스에서는 조회한 `entity`를 그대로 사용해 판단하고 저장한다.
@@ -226,7 +230,7 @@ Presentation (Controller)
 정리:
 
 - 쓰기/상태 변경: `entity` 중심
-- 읽기/응답 조립: QueryDSL + DTO 중심
+- 읽기/응답 조립: `JpaRepository` 또는 QueryDSL + DTO 중심
 - JPA 연관 join: 사용하지 않음
 
 ### `domain`
@@ -267,7 +271,7 @@ Presentation (Controller)
 예시 클래스:
 
 - `EventJpaRepository`
-- `EventEntryRepositoryImpl`
+- `EventEntryImpl`
 - `AttendanceEventQueryBuilder`
 - `PointClient`
 - `OpenApiConfig`
@@ -411,24 +415,26 @@ Repository를 직접 호출하지 않고, `Application Service`가 준비한 데
 
 ### `infrastructure.persistence.database.impl`
 
-- `EventRepositoryImpl`
-- `EventRoundRepositoryImpl`
-- `EventApplicantRepositoryImpl`
-- `EventEntryRepositoryImpl`
-- `EventWinRepositoryImpl`
-- `EventRoundPrizeRepositoryImpl`
+- `EventQueryImpl`
+- `EventRoundQueryImpl`
+- `EventApplicantQueryImpl`
+- `EventEntryImpl`
+- `EventWinImpl`
+- `EventRoundPrizeImpl`
 
-Repository Port의 Adapter 구현은 이 계층에 둔다.
+Repository Port의 Impl 구현은 이 계층에 둔다.
+이 디렉터리에는 `application.port.output`을 구현하는 `*Impl.java`만 둔다.
+동적 검색 또는 다른 테이블 조인이 필요하면 해당 `*Impl` 안에서 `JpaRepository`, `...EntityBuilder`, `JPAQueryFactory`를 함께 사용한다.
 
 ### `infrastructure.persistence.database.builder`
 
-- `EventConditionBuilder`
+- `EventEntityBuilder`
 - `AttendanceEventDetailQueryBuilder`
 
 QueryDSL 조건 조합과 read model 조회 최적화 코드는 이쪽에 둔다.
-`ConditionBuilder<T>`는 `Predicate buildWhere(T condition)` 형태를 권장하며, 검색 조건 DTO의 `eventType`은 `String`보다 enum을 사용하는 쪽을 권장한다.
+검색 조건 DTO의 `eventType`은 `String`보다 enum을 사용하는 쪽을 권장한다.
 read model 조회 시 필요한 round, prize, probability 데이터는 QueryDSL 조회 결과나 별도 조회를 통해 `Application Service`에 전달하고, DTO 조립은 application 계층에서 수행한다.
-현재 기준에서는 join이 많은 단일 쿼리보다 QueryDSL 개별 조회를 우선하고, `Application Service`가 이를 조립하는 구조를 권장한다.
+현재 기준에서는 `fetchJoin`이나 join이 많은 단일 쿼리보다 QueryDSL 개별 조회를 우선하고, `Application Service`가 이를 조립하는 구조를 권장한다.
 
 ### `infrastructure.external.point`
 
@@ -483,9 +489,9 @@ domain -> (가능하면 다른 계층을 모름)
 - Output Port: `...Port`
 - Application Service: `...Service`
 - Domain Service: `...DomainService`
-- Persistence 구현체: `...RepositoryImpl`
+- Persistence 구현체: `...Impl`
 - Spring Data 저장소: `...JpaRepository`
-- QueryDSL 검색 조건 빌더: `...ConditionBuilder`
+- QueryDSL 검색 조건 빌더: `...EntityBuilder`
 - QueryDSL 조회 조립기: `...QueryBuilder`
 
 ## 이벤트 응모 예시

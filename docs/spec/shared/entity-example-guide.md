@@ -321,7 +321,7 @@ public class EventRoundEntity extends BaseEntity {
 
 ## 7. EventApplicantEntity 예시
 
-`EventApplicantEntity`는 참여 가능 대상자 풀이다.
+`EventApplicantEntity`는 회차별 applicant 기준 레코드다.
 
 ```java
 package com.event.domain.entity;
@@ -367,12 +367,12 @@ public class EventApplicantEntity extends BaseEntity {
 
 포인트:
 
-- 현재 의미는 eligibility 데이터다.
-- `(event_id, member_id)` 최소 unique는 DDL에서 관리한다.
+- 현재 의미는 이벤트 단위 eligibility 풀이 아니라 회차별 applicant 기준 데이터다.
+- `(event_id, round_id, member_id)` 최소 unique는 DDL에서 관리한다.
 
 ## 8. EventEntryEntity 예시
 
-출석 성공 시 실제 참여 이력을 저장하는 핵심 Entity다.
+출석 성공 시 실제 응모권/참여 이력을 저장하는 핵심 Entity다.
 
 ```java
 package com.event.domain.entity;

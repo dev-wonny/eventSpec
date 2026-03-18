@@ -1,10 +1,8 @@
 package com.event.infrastructure.persistence.database.impl;
 
-import static com.event.domain.entity.QPrizeEntity.prizeEntity;
-
 import com.event.application.port.output.PrizeQueryPort;
 import com.event.domain.entity.PrizeEntity;
-import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.event.infrastructure.persistence.database.repository.PrizeJpaRepository;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -15,20 +13,13 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class PrizeQueryAdapter implements PrizeQueryPort {
+public class PrizeQueryImpl implements PrizeQueryPort {
 
-    private final JPAQueryFactory queryFactory;
+    private final PrizeJpaRepository prizeJpaRepository;
 
     @Override
     public Optional<PrizeEntity> findById(Long prizeId) {
-        return Optional.ofNullable(
-                queryFactory.selectFrom(prizeEntity)
-                        .where(
-                                prizeEntity.id.eq(prizeId),
-                                prizeEntity.isDeleted.isFalse()
-                        )
-                        .fetchOne()
-        );
+        return prizeJpaRepository.findByIdAndIsDeletedFalse(prizeId);
     }
 
     @Override
@@ -37,11 +28,7 @@ public class PrizeQueryAdapter implements PrizeQueryPort {
             return Map.of();
         }
 
-        return queryFactory.selectFrom(prizeEntity)
-                .where(
-                        prizeEntity.id.in(prizeIds)
-                )
-                .fetch()
+        return prizeJpaRepository.findAllById(prizeIds)
                 .stream()
                 .collect(Collectors.toMap(PrizeEntity::getId, Function.identity()));
     }

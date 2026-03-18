@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Component
 @RequiredArgsConstructor
-public class PointRewardAdapter implements PointRewardPort {
+public class PointRewardImpl implements PointRewardPort {
 
     private final RestClient pointRestClient;
     private final PointApiProperties pointApiProperties;

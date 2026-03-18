@@ -5,23 +5,24 @@ import static com.event.domain.entity.QEventEntity.eventEntity;
 import com.event.application.dto.condition.EventSearchCondition;
 import com.event.domain.model.EventType;
 import com.querydsl.core.BooleanBuilder;
-import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
-public class EventConditionBuilder implements ConditionBuilder<EventSearchCondition> {
+public class EventEntityBuilder {
 
-    @Override
-    public Predicate buildWhere(EventSearchCondition condition) {
+    public BooleanBuilder buildWhere(EventSearchCondition condition) {
+        EventSearchCondition safeCondition = condition == null ? EventSearchCondition.empty() : condition;
+
         return new BooleanBuilder()
-                .and(eventNameContains(condition.eventName()))
-                .and(eventTypeEq(condition.eventType()))
-                .and(isActiveEq(condition.isActive()))
-                .and(isVisibleEq(condition.isVisible()))
-                .and(supplierIdEq(condition.supplierId()));
+                .and(eventEntity.isDeleted.isFalse())
+                .and(eventNameContains(safeCondition.eventName()))
+                .and(eventTypeEq(safeCondition.eventType()))
+                .and(isActiveEq(safeCondition.isActive()))
+                .and(isVisibleEq(safeCondition.isVisible()))
+                .and(supplierIdEq(safeCondition.supplierId()));
     }
 
     private BooleanExpression eventNameContains(String eventName) {

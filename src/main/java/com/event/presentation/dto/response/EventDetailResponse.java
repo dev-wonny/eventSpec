@@ -1,16 +1,23 @@
 package com.event.presentation.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.event.application.dto.event.EventDetailDto;
 import com.event.application.dto.event.EventRoundDto;
 import com.event.domain.model.AttendanceStatus;
 import com.event.domain.model.EventType;
 import com.event.domain.model.RewardType;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Builder;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import lombok.Builder;
 
+/**
+ * 출석 이벤트의 전체 회차 목록과 출석 상태를 조회
+ * GET https://event-api.dolfarmer.com/event/v1/events/{eventId}
+ * api 문서에 정해진 출석체크 참여 상태 조회 결과 dto
+ * X-Member-Id 있음: 해당 회원의 출석 상태(ATTENDED / MISSED / TODAY / FUTURE) 포함
+ */
 @Builder
 public record EventDetailResponse(
         Long eventId,

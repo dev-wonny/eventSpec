@@ -40,7 +40,7 @@
 - 패키지 루트는 현재 Gradle `group` 기준인 `com.event`를 사용한다.
 - 외부 포인트 지급 클라이언트는 Spring Web 기반 HTTP 클라이언트로 구현한다.
 - QueryDSL Q 클래스는 Gradle generated source 설정을 기준으로 관리한다.
-- QueryDSL 검색 조건 빌더는 `ConditionBuilder<T>` 인터페이스와 `Predicate` 반환을 기본으로 한다.
+- QueryDSL 검색 조건 빌더는 `...EntityBuilder` 클래스와 `BooleanBuilder` 기반 조합을 기본으로 한다.
 - 조회는 JPA 연관 join보다 QueryDSL 개별 조회를 기본 경로로 사용한다.
 - 저장과 상태 변경은 JPA Entity 기반으로 처리한다.
 - 검색 조건 DTO의 `eventType`은 문자열보다 enum 사용을 권장한다.

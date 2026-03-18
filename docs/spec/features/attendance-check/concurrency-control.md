@@ -1,6 +1,6 @@
 # Concurrency Control
 
-이 문서는 출석체크의 중복 출석 방지와 외부 point API 중복 지급 방지 전략을 정리한다. 현재 설계는 FK 없이 운영하므로, 중복 제어는 Application 검증, DB unique, 외부 idempotency를 함께 사용한다.
+이 문서는 출석체크의 중복 출석 방지와 외부 point API 중복 지급 방지 전략을 정리한다. 현재 설계는 FK 없이 운영하므로, 중복 제어는 `event_applicant` 기준 Application 검증, DB unique, 외부 idempotency를 함께 사용한다.
 
 ## 목적
 
@@ -10,8 +10,8 @@
 
 ## 기본 원칙
 
-- `event_entry`에는 `UNIQUE (event_id, round_id, member_id)`가 반드시 있어야 한다.
-- 출석 중복 방지는 Application 검증과 DB unique 두 계층에서 처리한다.
+- `event_applicant`에는 `UNIQUE (event_id, round_id, member_id)`가 반드시 있어야 한다.
+- 출석 중복 방지는 `event_applicant` Application 검증과 DB unique 두 계층에서 처리한다.
 - point 지급 중복 방지는 외부 point 시스템의 `idempotency_key`로 처리한다.
 - 현재 point API의 `idempotency_key`는 `event_id + round_id + member_id` 조합을 사용한다.
 
@@ -19,17 +19,17 @@
 
 ### 1. Application validation
 
-- Service는 출석 저장 전에 `(event_id, round_id, member_id)` 기준으로 기존 `event_entry`를 조회한다.
-- 이미 유효한 `event_entry`가 있으면 `이미 출석했습니다`로 종료한다.
+- Service는 출석 저장 전에 `(event_id, round_id, member_id)` 기준으로 기존 `event_applicant`를 조회한다.
+- 이미 유효한 `event_applicant`가 있으면 `이미 출석했습니다`로 종료한다.
 - 이 검증은 사용자 경험과 빠른 중복 응답을 위한 1차 방어선이다.
 
 ### 2. Database constraint
 
-- `event_entry`에는 아래 unique가 반드시 있어야 한다.
+- `event_applicant`에는 아래 unique가 반드시 있어야 한다.
 
 ```sql
-CREATE UNIQUE INDEX uq_event_entry_event_round_member
-    ON event.event_entry (event_id, round_id, member_id)
+CREATE UNIQUE INDEX uq_event_applicant_event_round_member
+    ON event.event_applicant (event_id, round_id, member_id)
     WHERE is_deleted = FALSE;
 ```
 
@@ -77,7 +77,7 @@ UNIQUE(idempotency_key)
 
 - 같은 출석 요청이 동시에 2번 들어온다.
 - Application 검증은 둘 다 통과할 수 있다.
-- 최종적으로는 `uq_event_entry_event_round_member`가 한 건만 허용한다.
+- 최종적으로는 `uq_event_applicant_event_round_member`가 한 건만 허용한다.
 
 ### 2. retry
 
@@ -87,7 +87,7 @@ UNIQUE(idempotency_key)
 ### 3. client retry
 
 - 프론트가 같은 출석 요청을 다시 보낸다.
-- `event_entry` unique가 중복 출석을 막는다.
+- `event_applicant` unique가 중복 출석을 막는다.
 
 ### 4. network timeout
 
@@ -136,7 +136,7 @@ callPointApi(idempotencyKey);
 ```
 
 ```text
-INSERT event_entry
+INSERT event_applicant
    UNIQUE(event_id, round_id, member_id)
         ↓
 성공 -> 출석 계속 진행
@@ -148,10 +148,10 @@ INSERT event_entry
 1. `event` 조회
 2. `round` 조회
 3. `round.event_id == event.id` 검증
-4. `applicant eligibility` 확인
+4. `applicant` 중복 확인
 5. `prize mapping` 확인
-6. `event_entry` insert 시도
-7. 성공 시 point API 호출
+6. `event_applicant` insert 시도
+7. 성공 시 `event_entry` insert
 8. point API 성공 시 `event_win` 저장 및 커밋
 9. point API 실패 시 전체 rollback
 

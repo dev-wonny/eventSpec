@@ -5,7 +5,7 @@
 ## 목적
 
 - 어디서 예외를 잡고 어디서 다시 던질지 정한다.
-- 어떤 실패가 `event_entry`, `event_win` rollback으로 이어지는지 고정한다.
+- 어떤 실패가 `event_applicant`, `event_entry`, `event_win` rollback으로 이어지는지 고정한다.
 - 프론트에 어떤 종류의 실패를 노출할지 일관되게 관리한다.
 - 향후 AWS 기반 비동기 구조로 전환할 때 변경 포인트를 분리한다.
 - FK 없이 운영하는 대신 Service 검증과 최소 unique가 어떻게 보완하는지도 함께 정리한다.
@@ -13,10 +13,10 @@
 ## 현재 처리 원칙
 
 1. 출석 회차에 보상 매핑이 있으면 출석 성공은 외부 point API 성공까지 포함한다.
-2. 보상 매핑이 있는 출석은 `event_entry` 저장 후 외부 point API를 호출하고, 성공 시 `event_win`을 저장한다.
+2. 보상 매핑이 있는 출석은 `event_applicant` 저장 후 `event_entry`를 저장하고, 외부 point API 성공 시 `event_win`을 저장한다.
 3. 출석 회차에 보상 매핑이 없으면 외부 point API를 호출하지 않는다.
 4. 외부 point API 실패 또는 무응답이면 출석은 실패다.
-5. 출석 실패 시 `event_entry`, `event_win`은 남지 않아야 한다.
+5. 출석 실패 시 `event_applicant`, `event_entry`, `event_win`은 남지 않아야 한다.
 6. 예외를 catch한 뒤 삼키지 말고 도메인 예외로 변환해서 다시 던진다.
 7. 현재는 동기식 구조이므로 프론트는 즉시 성공 또는 실패를 받는다.
 
@@ -26,8 +26,8 @@
 | --- | --- | --- | --- | --- |
 | Validation 예외 | DTO 제약 위반, `X-Member-Id` 누락, path/body 타입 오류 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | `INVALID_REQUEST` |
 | Business 예외 | 이벤트 없음, 회차 없음, 이벤트-회차 불일치, 같은 `event_id + round_id + member_id` 중복 응모, 출석 불가 시간 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | 비즈니스 오류 |
-| External 실패 | point API 실패 응답 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | 출석 실패 |
-| External timeout | point API 무응답, 타임아웃 | 보상 매핑이 있을 때만 호출 | `event_entry`, `event_win` | `INTERNAL_ERROR` |
+| External 실패 | point API 실패 응답 | 보상 매핑이 있을 때만 호출 | `event_applicant`, `event_entry`, `event_win` | 출석 실패 |
+| External timeout | point API 무응답, 타임아웃 | 보상 매핑이 있을 때만 호출 | `event_applicant`, `event_entry`, `event_win` | `INTERNAL_ERROR` |
 | Persistence 예외 | 최소 unique 충돌, DB 저장 실패 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 또는 충돌 |
 | Unexpected 예외 | NPE, 매핑 오류, 기타 런타임 예외 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 |
 
@@ -58,13 +58,13 @@
 ```text
 1. 요청 검증
 2. 이벤트/회차 정합성 확인
-3. applicant eligibility 조회 및 검증
-4. 중복 출석 확인
+3. applicant 생성 가능 여부 조회 및 검증
+4. applicant 중복 출석 확인
 5. 출석 회차의 보상 매핑 확인
-6. event_entry 저장
-7. 보상 매핑이 있으면 외부 point API 호출
-8. 성공 시 event_win 저장
-9. 트랜잭션 커밋
+6. event_applicant 저장
+7. event_entry 저장
+8. 보상 매핑이 있으면 외부 point API 호출
+9. 성공 시 event_win 저장 후 트랜잭션 커밋
 ```
 
 외부 API 실패 또는 무응답이면 6~9 단계는 성공으로 확정되면 안 된다. 보상 매핑이 없으면 7과 8은 건너뛴다.
@@ -76,7 +76,7 @@
 - `총 대기 시간 = 최대 3초`
 - 타임아웃은 외부 시스템 장애로 간주한다.
 - 타임아웃이 발생하면 출석 참여 자체를 실패 처리한다.
-- 이 경우 `event_entry`, `event_win`은 모두 롤백되어야 한다.
+- 이 경우 `event_applicant`, `event_entry`, `event_win`은 모두 롤백되어야 한다.
 - 사용자 응답은 `INTERNAL_ERROR`를 사용한다.
 - 사용자 메시지는 `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`를 사용한다.
 - 사용자가 재시도하면 같은 `idempotency_key = event_id + round_id + member_id`로 외부 point API를 재호출한다.
@@ -106,11 +106,8 @@ public AttendanceResult attend(AttendanceCommand command) {
     Event event = loadEvent(command);
     EventRound round = loadRound(command.roundId());
     ensureRoundMatchesEvent(round, event.getId());
-    EventApplicant applicant = loadEligibleApplicant(command, event, round);
-    ensureApplicantMatchesEvent(applicant, event.getId(), round.getId());
+    EventApplicant applicant = createApplicant(command, event, round);
     Optional<EventRoundPrize> prize = loadAttendancePrize(round);
-
-    ensureNoDuplicateAttendance(applicant, round);
 
     try {
         EventEntry entry = eventEntryRepository.save(...);
@@ -135,7 +132,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 }
 ```
 
-위 흐름의 기준은 `event_entry` 저장 후 외부 point API 호출, 성공 시 `event_win` 저장이다. 외부 API 실패나 무응답이 발생하면 트랜잭션 전체가 롤백되어 `event_entry`도 남지 않아야 한다.
+위 흐름의 기준은 `event_applicant`, `event_entry` 저장 후 외부 point API 호출, 성공 시 `event_win` 저장이다. 외부 API 실패나 무응답이 발생하면 트랜잭션 전체가 롤백되어 `event_applicant`, `event_entry`도 남지 않아야 한다.
 
 ## rollback 기준
 
@@ -143,6 +140,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 
 - 외부 point API 실패 응답
 - 외부 point API 타임아웃 또는 무응답
+- `event_applicant` 저장 실패
 - `event_entry` 저장 실패
 - `event_win` 저장 실패
 - 중복 출석 판정 이후 발견된 정합성 오류
@@ -150,6 +148,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 
 ### 현재 보장 대상
 
+- `event_applicant`
 - `event_entry`
 - `event_win` 생성이 있는 경우의 `event_win`
 
@@ -201,7 +200,7 @@ public AttendanceResult attend(AttendanceCommand command) {
 
 ## 동시성 제어 연결
 
-- 출석 중복은 Application 조회와 `uq_event_entry_event_round_member` unique 두 계층에서 막는다.
+- 출석 중복은 Application 조회와 `uq_event_applicant_event_round_member` unique 두 계층에서 막는다.
 - point 중복 지급은 외부 point 시스템의 `idempotency_key`로 막는다.
 - 자세한 흐름은 `concurrency-control.md`를 기준으로 구현한다.
 

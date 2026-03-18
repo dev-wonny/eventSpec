@@ -8,11 +8,10 @@
 -- Confirmed change:
 --  - FK 미적용
 --  - 최소 unique만 유지
---  - event_applicant (event_id, member_id) unique 추가
---  - event_applicant.round_id NOT NULL 유지
+--  - event_applicant (event_id, round_id, member_id) unique 추가
 --  - event_entry.event_id 추가
 --  - event_entry.round_id 추가
---  - event_entry (event_id, round_id, member_id) unique 추가
+--  - event_entry unique 제거, is_winner update 허용
 -- ============================================================
 
 CREATE SCHEMA IF NOT EXISTS event;
@@ -229,8 +228,8 @@ COMMENT ON COLUMN event.event_round_prize_probability.deleted_at IS '삭제 일�
 
 -- ============================================================
 -- [6] event_applicant
--- 역할: 참여 가능 대상자 기준
--- Confirmed change: 이벤트 단위 eligibility unique 및 NOT NULL round_id 반영
+-- 역할: 회차별 applicant 기준
+-- Confirmed change: (event_id, round_id, member_id) unique 반영
 -- ============================================================
 CREATE TABLE event.event_applicant (
     id         BIGINT      GENERATED ALWAYS AS IDENTITY,
@@ -248,9 +247,9 @@ CREATE TABLE event.event_applicant (
     CONSTRAINT pk_event_applicant PRIMARY KEY (id)
 );
 
-COMMENT ON TABLE  event.event_applicant            IS '참여 가능 대상자 기준';
-COMMENT ON COLUMN event.event_applicant.event_id   IS '이벤트 식별자 (eligibility 기준값)';
-COMMENT ON COLUMN event.event_applicant.round_id   IS '회차 식별자 (필수, 이벤트 생성 시 생성된 기준 회차)';
+COMMENT ON TABLE  event.event_applicant            IS '회차별 applicant 기준';
+COMMENT ON COLUMN event.event_applicant.event_id   IS '이벤트 식별자';
+COMMENT ON COLUMN event.event_applicant.round_id   IS '회차 식별자';
 COMMENT ON COLUMN event.event_applicant.member_id  IS '회원 식별자';
 COMMENT ON COLUMN event.event_applicant.is_deleted IS '논리 삭제 여부';
 COMMENT ON COLUMN event.event_applicant.created_at IS '등록 일시';
@@ -261,8 +260,8 @@ COMMENT ON COLUMN event.event_applicant.deleted_at IS '삭제 일시';
 
 -- ============================================================
 -- [7] event_entry
--- 역할: 응모 행위 이력
--- Confirmed change: round_id 직접 저장
+-- 역할: 응모권/참여 이력
+-- Confirmed change: round_id 직접 저장, is_winner update 허용
 -- ============================================================
 CREATE TABLE event.event_entry (
     id                   BIGINT      GENERATED ALWAYS AS IDENTITY,
@@ -284,14 +283,14 @@ CREATE TABLE event.event_entry (
     CONSTRAINT pk_event_entry PRIMARY KEY (id)
 );
 
-COMMENT ON TABLE  event.event_entry                    IS '응모 행위 이력';
-COMMENT ON COLUMN event.event_entry.applicant_id       IS '참여자 식별자';
-COMMENT ON COLUMN event.event_entry.event_id           IS '이벤트 식별자 (조회/중복체크용 값참조)';
-COMMENT ON COLUMN event.event_entry.round_id           IS '출석/응모 회차 식별자';
+COMMENT ON TABLE  event.event_entry                    IS '응모권/참여 이력';
+COMMENT ON COLUMN event.event_entry.applicant_id       IS 'applicant 식별자';
+COMMENT ON COLUMN event.event_entry.event_id           IS '이벤트 식별자';
+COMMENT ON COLUMN event.event_entry.round_id           IS '응모 회차 식별자';
 COMMENT ON COLUMN event.event_entry.member_id          IS '회원 식별자';
 COMMENT ON COLUMN event.event_entry.applied_at         IS '응모 일시';
 COMMENT ON COLUMN event.event_entry.event_round_prize_id IS '당첨 경품 식별자 보조값 (NULL 가능, SoT 아님)';
-COMMENT ON COLUMN event.event_entry.is_winner          IS '당첨 여부 보조값 (SoT: event_win)';
+COMMENT ON COLUMN event.event_entry.is_winner          IS '당첨 여부 (추첨형 이벤트에서 update 가능)';
 COMMENT ON COLUMN event.event_entry.is_deleted         IS '논리 삭제 여부';
 COMMENT ON COLUMN event.event_entry.created_at         IS '등록 일시';
 COMMENT ON COLUMN event.event_entry.created_by         IS '등록자 식별자';
@@ -343,14 +342,18 @@ CREATE UNIQUE INDEX uq_event_round_event_round_no
     ON event.event_round (event_id, round_no)
     WHERE is_deleted = FALSE;
 
--- event_applicant: 이벤트 대상자 중복 적재 방지
-CREATE UNIQUE INDEX uq_event_applicant_event_member_id
-    ON event.event_applicant (event_id, member_id)
+-- event_applicant: 같은 이벤트/회차/회원 applicant 중복 방지
+CREATE UNIQUE INDEX uq_event_applicant_event_round_member
+    ON event.event_applicant (event_id, round_id, member_id)
     WHERE is_deleted = FALSE;
 
--- event_entry: 동일 이벤트/회차/회원 중복 출석 방지
-CREATE UNIQUE INDEX uq_event_entry_event_round_member
+-- event_entry: 응모권 조회용 인덱스
+CREATE INDEX idx_event_entry_event_round_member
     ON event.event_entry (event_id, round_id, member_id)
+    WHERE is_deleted = FALSE;
+
+CREATE INDEX idx_event_entry_event_member
+    ON event.event_entry (event_id, member_id)
     WHERE is_deleted = FALSE;
 
 -- event_win: 1 entry 당 최대 1개 지급 결과 보장

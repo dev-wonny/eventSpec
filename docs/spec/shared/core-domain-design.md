@@ -461,7 +461,7 @@ ApplicationService -> DTO 조립
 3. `Policy`로 이벤트 규칙을 분리한다.
 4. `DomainService`로 도메인 검증을 수행한다.
 5. `ApplicationService`로 유스케이스를 실행한다.
-6. `RepositoryAdapter`로 DB 접근을 수행한다.
+6. `*Impl`로 DB 접근을 수행한다.
 7. 이벤트 타입 확장은 JPA 상속보다 `EventEntity + Policy` 전략을 우선한다.
 
 ## 16. 최종 아키텍처 요약
@@ -472,7 +472,7 @@ Controller
    -> DomainService
    -> EventPolicy
    -> RepositoryPort
-     -> RepositoryAdapter
+     -> *Impl
        -> Database
 ```
 

@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 @AllArgsConstructor
 public enum EventCode implements ResponseCode {
+    // 이벤트 급정지
+    // 이벤트 종료
 
     EVENT_NOT_FOUND("EVENT_NOT_FOUND", "이벤트가 존재하지 않습니다.", CommonCode.NOT_FOUND),
     EVENT_NOT_ATTENDANCE("EVENT_NOT_ATTENDANCE", "출석 이벤트가 아닙니다.", CommonCode.BUSINESS_ERROR),

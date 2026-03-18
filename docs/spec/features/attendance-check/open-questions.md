@@ -6,10 +6,10 @@
 
 - [x] 출석 단위는 `event_round` 기준의 일자성 회차다.
 - [x] 월간 출석 이벤트는 같은 `event_id` 아래 날짜 수만큼 `event_round`를 가진다.
-- [x] `event_applicant`는 이벤트 참여 가능 대상자 풀로 사용된다.
-- [x] `event_applicant.round_id`는 필수값이다.
-- [x] 이벤트 생성 시 `event_round`는 최소 1개 생성되므로 `event_applicant.round_id`는 기준 회차를 가진다.
-- [x] `event_entry`는 출석 성공 및 향후 랜덤 리워드 참여 이력을 append-only로 저장한다.
+- [x] `event_applicant`는 eligibility 테이블이 아니라 회차별 applicant 기준 테이블로 사용된다.
+- [x] `event_applicant`는 `(event_id, round_id, member_id)` unique로 동작한다.
+- [x] `event_entry`는 응모권/참여 이력 테이블이며 같은 회차에도 여러 건이 저장될 수 있다.
+- [x] 추첨형 이벤트에서는 `event_entry.is_winner`가 나중에 update될 수 있다.
 - [x] `event_win`은 실제 지급 보상과 외부 보상 API 성공 이력을 저장한다.
 - [x] `event.supplier_id`는 현재 위드 DB 기준 값을 사용한다.
 - [x] 추후 버터 DB로 위드 데이터를 마이그레이션해 `supplier_id`를 이어받는다.
@@ -21,9 +21,9 @@
 - [x] `POST`는 `X-Member-Id`가 필수다.
 - [x] `GET`은 `X-Member-Id`가 선택이다.
 - [x] `GET`에서 `X-Member-Id`가 없으면 `status = null`, `win = null`을 반환한다.
-- [x] `event_applicant`는 `(event_id, member_id)` unique로 동작한다.
 - [x] 출석 중복의 비즈니스 기준은 같은 `event_id + round_id + member_id` 재요청이다.
 - [x] 출석 이벤트에서 `event_entry`는 매일 출석 여부 판정을 위해 `event_id`, `round_id`를 가진다.
+- [x] 출석체크형 이벤트는 즉시 보상이므로 `event_entry.is_winner = true`로 저장한다.
 - [x] 중복 출석 시 프론트에는 `이미 출석했습니다`를 노출한다.
 - [x] FK는 두지 않고 Service 검증으로 참조 정합성을 보장한다.
 - [x] DB에는 최소 unique만 유지한다.
@@ -75,6 +75,6 @@
 - [x] 제공된 원본 DDL의 `event_applicant` unique는 `(round_id, member_id)`였다.
 - [x] 후속 랜덤 보상 기능이 사용할 `event_round_prize`, `event_win` 경로가 준비되어 있다.
 - [x] 신규 환경용 schema draft는 FK를 두지 않는다.
-- [x] 신규 환경용 schema draft는 `event_applicant (event_id, member_id)`와 `NOT NULL round_id`를 반영했다.
+- [x] 신규 환경용 schema draft는 `event_applicant (event_id, round_id, member_id)` unique를 반영했다.
 - [x] 신규 환경용 schema draft는 `event_entry.event_id`, `event_entry.round_id`를 반영했다.
-- [x] 신규 환경용 schema draft는 `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 유지한다.
+- [x] 신규 환경용 schema draft는 `uq_event_round_event_round_no`, `uq_event_applicant_event_round_member`, `uq_event_win_entry_id`만 최소 unique로 유지한다.

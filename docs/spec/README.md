@@ -20,17 +20,19 @@
 5. `shared/domain-architecture-guide.md`
 6. `shared/core-domain-design.md`
 7. `shared/entity-example-guide.md`
-8. `shared/logging-observability-spec.md`
-9. `shared/code-package-response-spec.md`
-10. `features/<feature>/README.md`
-11. `features/<feature>/use-cases.md`
-12. `features/<feature>/business-rules.md`
-13. `features/<feature>/api-spec.md`
-14. `features/<feature>/data-spec.md`
-15. `features/<feature>/exception-handling.md`
-16. `features/<feature>/test-scenarios.md`
-17. `features/<feature>/open-questions.md`
-18. `features/<feature>/traceability.md`
+8. `shared/query-strategy-guide.md`
+9. `shared/comment-writing-guide.md`
+10. `shared/logging-observability-spec.md`
+11. `shared/code-package-response-spec.md`
+12. `features/<feature>/README.md`
+13. `features/<feature>/use-cases.md`
+14. `features/<feature>/business-rules.md`
+15. `features/<feature>/api-spec.md`
+16. `features/<feature>/data-spec.md`
+17. `features/<feature>/exception-handling.md`
+18. `features/<feature>/test-scenarios.md`
+19. `features/<feature>/open-questions.md`
+20. `features/<feature>/traceability.md`
 
 ## 식별자 규칙
 
@@ -60,6 +62,8 @@ docs/
       domain-architecture-guide.md
       core-domain-design.md
       entity-example-guide.md
+      query-strategy-guide.md
+      comment-writing-guide.md
       logging-observability-spec.md
       code-package-response-spec.md
     features/

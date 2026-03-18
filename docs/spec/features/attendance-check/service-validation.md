@@ -21,9 +21,9 @@
 1. 요청 필수값 검증
 2. 이벤트 존재 및 상태 검증
 3. 회차 존재 및 이벤트-회차 정합성 검증
-4. `event_applicant` 기반 참여 가능 대상자 검증
-5. 중복 출석 검증
-6. 출석 회차 보상 매핑 검증
+4. `event_applicant` 기준 생성 가능 여부 검증
+5. 출석 회차 보상 매핑 검증
+6. `event_applicant` 저장
 7. `event_entry` 저장
 8. 외부 point API 호출 및 결과 처리
 9. `event_win` 저장 및 커밋
@@ -65,25 +65,21 @@ if (!round.getEventId().equals(eventId)) {
 }
 ```
 
-### ATT-SVC-004 참여 가능 대상자 검증
+### ATT-SVC-004 applicant 기준 생성 가능 여부 검증
 
-- `event_applicant`에서 `(event_id, member_id)` 기준으로 참여 가능 대상자를 조회해야 한다.
+- `event_applicant`는 `(event_id, round_id, member_id)` 기준 회차별 applicant 테이블로 사용한다.
 - 이 조회는 `is_deleted = FALSE`인 현재 유효 레코드만 대상으로 한다.
-- 대상자가 없으면 참여 불가 오류로 종료한다.
-- `event_applicant.round_id`는 `NULL`이면 안 된다.
-- `event_applicant.event_id`가 요청 `eventId`와 일치하는지도 검증해야 한다.
-- `event_applicant.round_id`는 같은 `eventId`에 속한 기준 회차여야 한다.
-- `event_applicant`는 이벤트 단위 eligibility이므로 `event_applicant.round_id == 요청 roundId`를 기본 출석 조건으로 사용하지 않는다.
-- `event_applicant`는 참여 조건이나 대상자 판정 결과를 사전 적재한 기준 테이블로 사용한다.
-- 이벤트 기간 조건이 유효하고 `event_applicant`가 확인되면 추가 참여 조건 조회는 생략할 수 있다.
+- 같은 키의 applicant가 이미 있으면 중복 출석으로 종료한다.
+- `event_applicant.round_id`는 `NULL`이면 안 되고 요청 `roundId`와 같아야 한다.
+- `event_applicant.event_id`가 요청 `eventId`와 일치해야 한다.
+- applicant 생성 성공 후에만 실제 `event_entry`를 저장한다.
 
 ### ATT-SVC-005 중복 출석 검증
 
-- 중복 출석 기준은 `event_id + round_id + member_id`다.
-- 같은 키의 유효한 `event_entry`가 이미 있으면 `이미 출석했습니다`로 종료한다.
-- 여기서 유효한 `event_entry`는 `is_deleted = FALSE`인 레코드만 의미한다.
-- 이 검증은 저장 직전까지 유지해야 하며, 동시 요청 상황에서는 `uq_event_entry_event_round_member` unique 충돌도 함께 처리해야 한다.
-- `uq_event_entry_event_round_member`는 출석 시스템에서 필수 unique다.
+- 중복 출석 기준은 `event_applicant`의 `event_id + round_id + member_id`다.
+- 같은 키의 유효한 `event_applicant`가 이미 있으면 `이미 출석했습니다`로 종료한다.
+- 동시 요청 상황에서는 `uq_event_applicant_event_round_member` unique 충돌도 함께 처리해야 한다.
+- `event_entry`는 응모권 테이블이므로 중복 출석 제어용 unique를 갖지 않는다.
 
 ### ATT-SVC-006 출석 회차 보상 매핑 검증
 
@@ -96,13 +92,14 @@ if (!round.getEventId().equals(eventId)) {
 
 - 보상 매핑이 있는 경우에만 외부 point API를 호출한다.
 - 보상 매핑이 없는 경우 외부 point API를 호출하지 않는다.
-- 보상 매핑이 있는 경우에도 외부 API 호출 전 `event_entry`는 먼저 저장한다.
+- 출석체크형 이벤트는 `event_applicant` 저장 후 `event_entry`를 저장한다.
+- 보상 매핑이 있는 경우 출석체크형 이벤트의 `event_entry.is_winner`는 저장 시점에 `true`다.
 - 보상 매핑이 없는 경우 `event_entry`만 저장하고 `event_win`은 생성하지 않는다.
 
 ### ATT-SVC-008 외부 연동 성공 후 저장 검증
 
 - 외부 point API가 성공하면 `event_win`을 저장하고 최종 커밋해야 한다.
-- 외부 point API가 실패하거나 무응답이면 `event_entry`, `event_win`은 모두 롤백해야 한다.
+- 외부 point API가 실패하거나 무응답이면 `event_applicant`, `event_entry`, `event_win`은 모두 롤백해야 한다.
 - 외부 point API가 호출되지 않은 무보상 출석은 `event_entry`만 저장한다.
 - 외부 point API client는 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`를 사용해야 한다.
 - 외부 point API 타임아웃은 외부 시스템 장애로 간주하고, 출석 자체를 실패 처리해야 한다.
@@ -128,12 +125,12 @@ if (!round.getEventId().equals(eventId)) {
 - `event_win.entry_id == event_entry.id`
 - 출석체크 회차당 active `event_round_prize = 0..1`
 - 출석 회차 보상은 `POINT`만 허용
-- `event_applicant` 존재 여부에 따른 참여 가능 판정
+- `event_applicant` 생성 가능 여부에 따른 출석 가능 판정
 - 무보상 출석 시 외부 API 생략 및 `event_win` 미생성
 
 ## 구현 메모
 
-- 최소 unique는 `uq_event_round_event_round_no`, `uq_event_applicant_event_member_id`, `uq_event_entry_event_round_member`, `uq_event_win_entry_id`만 유지한다.
+- 최소 unique는 `uq_event_round_event_round_no`, `uq_event_applicant_event_round_member`, `uq_event_win_entry_id`만 유지한다.
 - 출석체크와 랜덤 리워드는 `event_round_prize`를 공유하므로, 출석 전용 제약은 Service에서 `event_type = ATTENDANCE`일 때만 적용한다.
 - 관리 API가 아직 없으므로 운영/SQL 적재 데이터의 이상 여부를 Service가 한 번 더 방어해야 한다.
 - 동시성 제어는 조회만으로 끝내지 말고 락, 최소 unique 충돌 처리, 재검증 전략을 함께 고려한다.
