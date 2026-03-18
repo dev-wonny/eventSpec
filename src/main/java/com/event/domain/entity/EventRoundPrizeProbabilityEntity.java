@@ -32,12 +32,15 @@ public class EventRoundPrizeProbabilityEntity extends BaseEntity {
     @Column(name = "event_round_prize_id", nullable = false)
     private Long eventRoundPrizeId;
 
+    // 보상 당첨 확률이다. 백분율 또는 운영 정의값으로 해석한다.
     @Column(name = "probability", nullable = false, precision = 5, scale = 2)
     private BigDecimal probability;
 
+    // 동일 확률 내 추가 가중치가 필요할 때 사용하는 값이다.
     @Column(name = "weight", nullable = false)
     private Integer weight;
 
+    // 현재 확률 규칙이 활성 상태인지 여부다.
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 

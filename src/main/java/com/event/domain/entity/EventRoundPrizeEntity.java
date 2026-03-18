@@ -32,12 +32,15 @@ public class EventRoundPrizeEntity extends BaseEntity {
     @Column(name = "priority", nullable = false)
     private Integer priority;
 
+    // 하루 기준 지급 제한 수량이다.
     @Column(name = "daily_limit")
     private Integer dailyLimit;
 
+    // 전체 누적 지급 제한 수량이다.
     @Column(name = "total_limit")
     private Integer totalLimit;
 
+    // 현재 회차에서 실제로 사용 중인 보상 매핑인지 여부다.
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 

@@ -28,6 +28,7 @@ public class EventApplicantEntity extends BaseEntity {
     @Column(name = "event_id", nullable = false)
     private Long eventId;
 
+    // 출석을 시도한 회차 ID다. 중복 출석 제어의 기준으로도 사용된다.
     @Column(name = "round_id", nullable = false)
     private Long roundId;
 
@@ -48,6 +49,7 @@ public class EventApplicantEntity extends BaseEntity {
             Long memberId,
             Long actor
     ) {
+        // applicant는 "이 회원이 이 회차에 응모를 시도했다"는 선행 기록이다.
         EventApplicantEntity entity = EventApplicantEntity.builder()
                 .eventId(eventId)
                 .roundId(roundId)

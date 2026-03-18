@@ -37,6 +37,7 @@ public class EventWinEntity extends BaseEntity {
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 
+    // 어떤 회차 보상으로 당첨됐는지 가리키는 연결 키다.
     @Column(name = "event_round_prize_id")
     private Long eventRoundPrizeId;
 
@@ -65,6 +66,7 @@ public class EventWinEntity extends BaseEntity {
             Long eventRoundPrizeId,
             Long actor
     ) {
+        // win은 실제 보상 지급 대상이 생겼을 때만 저장한다.
         EventWinEntity entity = EventWinEntity.builder()
                 .entryId(entryId)
                 .roundId(roundId)

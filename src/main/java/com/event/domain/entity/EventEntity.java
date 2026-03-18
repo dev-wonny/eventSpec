@@ -50,33 +50,43 @@ public class EventEntity extends BaseEntity {
     @Column(name = "event_url", length = 300)
     private String eventUrl;
 
+    // 정기 추첨형 이벤트에서 당첨자 선정 주기를 나타내는 값이다.
     @Column(name = "winner_selection_cycle")
     private Integer winnerSelectionCycle;
 
+    // 정기 추첨형 이벤트에서 선정 기준 시각으로 쓰는 값이다.
     @Column(name = "winner_selection_base_at")
     private Instant winnerSelectionBaseAt;
 
+    // 노출 정렬 우선순위다. 숫자가 낮을수록 먼저 노출될 수 있다.
     @Column(name = "priority", nullable = false)
     private Integer priority;
 
+    // 운영 중인 이벤트인지 여부다.
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
+    // 사용자 화면에 노출할지 여부다.
     @Column(name = "is_visible", nullable = false)
     private Boolean isVisible;
 
+    // 별도 사용자 액션 없이 자동 응모 가능한지 여부다.
     @Column(name = "is_auto_entry", nullable = false)
     private Boolean isAutoEntry;
 
+    // SNS 연동이 필요한 이벤트인지 여부다.
     @Column(name = "is_sns_linked", nullable = false)
     private Boolean isSnsLinked;
 
+    // 당첨자 발표가 끝났는지 여부다.
     @Column(name = "is_winner_announced", nullable = false)
     private Boolean isWinnerAnnounced;
 
+    // 같은 회원의 중복 당첨 허용 여부다.
     @Column(name = "is_duplicate_winner", nullable = false)
     private Boolean isDuplicateWinner;
 
+    // 같은 회원의 다중 응모 허용 여부다.
     @Column(name = "is_multiple_entry", nullable = false)
     private Boolean isMultipleEntry;
 

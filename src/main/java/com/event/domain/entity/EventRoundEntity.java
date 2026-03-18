@@ -32,15 +32,19 @@ public class EventRoundEntity extends BaseEntity {
     @Column(name = "round_no", nullable = false)
     private Integer roundNo;
 
+    // 회차별 개별 시작 시각이다. 없으면 이벤트 시작일과 roundNo로 계산하기도 한다.
     @Column(name = "round_start_at")
     private Instant roundStartAt;
 
+    // 회차별 개별 종료 시각이다.
     @Column(name = "round_end_at")
     private Instant roundEndAt;
 
+    // 추첨 시점이 따로 있는 이벤트에서 사용하는 시각이다.
     @Column(name = "draw_at")
     private Instant drawAt;
 
+    // 운영 확정 여부다. 배치/관리자 확정 플로우에서 사용할 수 있다.
     @Column(name = "is_confirmed", nullable = false)
     private Boolean isConfirmed;
 

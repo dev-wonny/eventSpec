@@ -19,6 +19,7 @@ import com.event.domain.entity.EventRoundPrizeEntity;
 import com.event.domain.entity.PrizeEntity;
 import com.event.domain.exception.BusinessException;
 import com.event.domain.exception.code.EntryCode;
+import com.event.domain.exception.code.EventCode;
 import com.event.domain.model.EventType;
 import com.event.domain.model.RewardType;
 import com.event.domain.service.AttendanceDomainService;
@@ -133,7 +134,7 @@ class AttendEventTransactionServiceTest {
         );
 
         when(eventQueryPort.findById(1L)).thenReturn(Optional.of(event));
-        when(eventRoundQueryPort.findByIdAndEventId(11L, 1L)).thenReturn(Optional.of(round));
+        when(eventRoundQueryPort.findById(11L)).thenReturn(Optional.of(round));
         when(eventApplicantCommandPort.save(any(EventApplicantEntity.class))).thenReturn(applicant);
         when(eventRoundPrizeQueryPort.findActiveByRoundId(11L)).thenReturn(List.of(eventRoundPrize));
         when(prizeQueryPort.findById(400L)).thenReturn(Optional.of(prize));
@@ -184,7 +185,7 @@ class AttendEventTransactionServiceTest {
                 .build();
 
         when(eventQueryPort.findById(1L)).thenReturn(Optional.of(event));
-        when(eventRoundQueryPort.findByIdAndEventId(11L, 1L)).thenReturn(Optional.of(round));
+        when(eventRoundQueryPort.findById(11L)).thenReturn(Optional.of(round));
         when(eventApplicantCommandPort.save(any(EventApplicantEntity.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
@@ -192,5 +193,40 @@ class AttendEventTransactionServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(ex -> ((BusinessException) ex).getResponseCode())
                 .isEqualTo(EntryCode.ENTRY_ALREADY_APPLIED);
+    }
+
+    @Test
+    void attend_shouldThrowRoundEventMismatch_whenRoundBelongsToAnotherEvent() {
+        AttendEventCommand command = AttendEventCommand.of(1L, 11L, 999L);
+        EventEntity event = EventEntity.builder()
+                .id(1L)
+                .eventName("attendance")
+                .eventType(EventType.ATTENDANCE)
+                .startAt(Instant.now().minusSeconds(3600))
+                .endAt(Instant.now().plusSeconds(3600))
+                .supplierId(1L)
+                .priority(1)
+                .isActive(true)
+                .isVisible(true)
+                .isAutoEntry(false)
+                .isSnsLinked(false)
+                .isWinnerAnnounced(false)
+                .isDuplicateWinner(false)
+                .isMultipleEntry(false)
+                .build();
+        EventRoundEntity round = EventRoundEntity.builder()
+                .id(11L)
+                .eventId(2L)
+                .roundNo(1)
+                .isConfirmed(false)
+                .build();
+
+        when(eventQueryPort.findById(1L)).thenReturn(Optional.of(event));
+        when(eventRoundQueryPort.findById(11L)).thenReturn(Optional.of(round));
+
+        assertThatThrownBy(() -> attendEventTransactionService.attend(command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getResponseCode())
+                .isEqualTo(EventCode.ROUND_EVENT_MISMATCH);
     }
 }

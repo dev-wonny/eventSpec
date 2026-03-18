@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EventRoundJpaRepository extends JpaRepository<EventRoundEntity, Long> {
 
-    Optional<EventRoundEntity> findByIdAndEventIdAndIsDeletedFalse(Long roundId, Long eventId);
+    Optional<EventRoundEntity> findByIdAndIsDeletedFalse(Long roundId);
 
     List<EventRoundEntity> findByEventIdAndIsDeletedFalseOrderByRoundNoAsc(Long eventId);
 

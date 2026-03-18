@@ -8,7 +8,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -16,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
 @RestControllerAdvice
@@ -112,17 +112,22 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<BaseResponse<Void>> handleDataIntegrityViolationException(
-            DataIntegrityViolationException ex
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<BaseResponse<Map<String, String>>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException ex
     ) {
-        log.warn("commonCode={} message={}", CommonCode.CONFLICT.getCode(), ex.getMessage(), ex);
+        String parameterName = ex.getName() != null ? ex.getName() : "request";
+        Map<String, String> errors = Map.of(
+                parameterName,
+                parameterName + " 값의 형식이 올바르지 않습니다."
+        );
+
         return ResponseEntity
-                .status(CommonCode.CONFLICT.getStatus())
-                .body(BaseResponse.<Void>error(
-                        CommonCode.CONFLICT,
-                        CommonCode.CONFLICT.getMessage(),
-                        null
+                .status(CommonCode.INVALID_REQUEST.getStatus())
+                .body(BaseResponse.error(
+                        CommonCode.INVALID_REQUEST,
+                        CommonCode.INVALID_REQUEST.getMessage(),
+                        errors
                 ));
     }
 

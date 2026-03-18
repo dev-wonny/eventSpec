@@ -38,9 +38,11 @@ public class EventEntryEntity extends BaseEntity {
     @Column(name = "applied_at", nullable = false)
     private Instant appliedAt;
 
+    // 연결된 회차 보상이 있을 때만 채워진다.
     @Column(name = "event_round_prize_id")
     private Long eventRoundPrizeId;
 
+    // 출석 자체는 항상 저장되지만, 보상 매핑 유무에 따라 당첨 여부가 갈린다.
     @Column(name = "is_winner", nullable = false)
     private Boolean isWinner;
 
@@ -71,6 +73,7 @@ public class EventEntryEntity extends BaseEntity {
             boolean isWinner,
             Long actor
     ) {
+        // entry는 실제 출석 완료 이력을 남기는 핵심 레코드다.
         EventEntryEntity entity = EventEntryEntity.builder()
                 .applicantId(applicantId)
                 .eventId(eventId)

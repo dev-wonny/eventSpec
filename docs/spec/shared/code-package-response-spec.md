@@ -354,6 +354,7 @@ Validation 실패는 아래 예외를 `INVALID_REQUEST`로 처리한다.
 - `MissingRequestHeaderException`
 - `ConstraintViolationException`
 - `HttpMessageNotReadableException`
+- `MethodArgumentTypeMismatchException`
 
 `MethodArgumentNotValidException` 예시:
 
@@ -386,6 +387,7 @@ public ResponseEntity<BaseResponse<Map<String, String>>> handleValidationExcepti
 - Validation 오류는 `data = Map<String, String>` 형태로 반환한다.
 - field당 첫 번째 메시지만 반환한다.
 - `X-Member-Id` 누락도 `INVALID_REQUEST`로 처리한다.
+- path variable, request param, header의 타입 변환 실패도 `INVALID_REQUEST`로 처리한다.
 
 Validation 예시 응답:
 

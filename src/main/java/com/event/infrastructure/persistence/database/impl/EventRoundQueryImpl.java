@@ -15,8 +15,8 @@ public class EventRoundQueryImpl implements EventRoundQueryPort {
     private final EventRoundJpaRepository eventRoundJpaRepository;
 
     @Override
-    public Optional<EventRoundEntity> findByIdAndEventId(Long roundId, Long eventId) {
-        return eventRoundJpaRepository.findByIdAndEventIdAndIsDeletedFalse(roundId, eventId);
+    public Optional<EventRoundEntity> findById(Long roundId) {
+        return eventRoundJpaRepository.findByIdAndIsDeletedFalse(roundId);
     }
 
     @Override

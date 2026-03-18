@@ -33,15 +33,19 @@ public class PrizeEntity extends BaseEntity {
     @Column(name = "reward_type", nullable = false, length = 50)
     private RewardType rewardType;
 
+    // 포인트형 보상일 때만 사용되는 수량이다.
     @Column(name = "point_amount")
     private Integer pointAmount;
 
+    // 쿠폰형 보상일 때 연결되는 외부/내부 쿠폰 ID다.
     @Column(name = "coupon_id")
     private Long couponId;
 
+    // 운영 중인 보상인지 여부다.
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
+    // 운영자 메모나 상세 설명으로 사용할 수 있는 필드다.
     @Column(name = "prize_description")
     private String prizeDescription;
 

@@ -148,6 +148,31 @@ service.attend(Map.of(...));
 - Controller -> 외부 응답은 `Response DTO`
 - `Entity`, `Map`, 원시 파라미터 나열은 공개 유스케이스 경계에서 지양한다.
 
+여기서 말하는 "지양"은 `Controller -> Service` 같은 공개 유스케이스 경계를 기준으로 한다.
+
+현재 구조에서는 `Application Service -> Output Port` 경계에서는 일부 `Entity`를 그대로 사용한다.
+
+예:
+
+- `EventApplicantCommandPort.save(EventApplicantEntity)`
+- `EventEntryCommandPort.save(EventEntryEntity)`
+- `EventQueryPort.findById(...) -> Optional<EventEntity>`
+
+이유:
+
+- 현재 프로젝트는 `output port`를 repository 추상화에 가깝게 사용한다.
+- Service가 도메인 Entity를 생성하고 저장 포트에 넘기는 구조를 이미 사용하고 있다.
+- 조회/저장 포트에서 Entity를 그대로 주고받는 것이 현재 코드베이스와 가장 일관적이다.
+
+즉, 이번 기준은 아래처럼 나눠서 본다.
+
+- `Controller -> Service`: `Command/Query DTO`
+- `Service -> Controller`: `Result DTO`
+- `Application Service -> Output Port`: 현재는 `Entity` 사용 가능
+
+그래서 "Entity를 절대 넘기지 않는다"가 아니라,
+"Controller와 Service 사이 공개 유스케이스 경계에서는 Entity를 넘기지 않는다"에 더 가깝다.
+
 ## 6. 이번 출석체크에서 실제로 나눈 기준
 
 `src/main/java/com/event/application/dto/attendance` 하위는 현재 아래처럼 나눴다.
@@ -266,6 +291,9 @@ service.attend(Map.of(...));
 - 정말 다른 경계를 넘는가
 - 아니면 그냥 `Entity`나 기존 `Result DTO`면 충분한가
 
+참고로 현재 출석체크 구현에서는 output port가 이미 `Entity`를 직접 사용하므로,
+저장/조회 포트에 대해서는 DTO를 새로 만드는 것보다 `Entity`를 그대로 쓰는 편이 더 단순하다.
+
 ## 9. point API 연동은 별도 흐름으로 본다.
 
 ```text
@@ -286,7 +314,39 @@ AttendEventTransactionService
 
 즉, DTO 이름만 보지 말고 패키지까지 같이 보면 된다.
 
-## 11. 다음에 DTO를 추가할 때 체크할 질문
+## 11. @Comment, @Schema, 코드 주석은 어떻게 나눠 보나
+
+셋은 목적이 다르다.
+
+- `@Comment`: DB 테이블/컬럼 설명
+- `@Schema`: API 요청/응답 필드 설명
+- 코드 주석: 서비스 흐름이나 분기 이유 설명
+
+쉽게 말하면 아래처럼 보면 된다.
+
+- DB에 남길 설명이면 `@Comment`
+- Swagger/OpenAPI에 보여 줄 설명이면 `@Schema`
+- "왜 이렇게 동작하는지"를 개발자에게 설명하려면 코드 주석
+
+예:
+
+- Entity의 `createdAt` 의미를 DB 레벨에 남기고 싶다 -> `@Comment("등록 일시")`
+- Response DTO의 `winner` 필드를 Swagger에 설명하고 싶다 -> `@Schema(description = "당첨 여부")`
+- `AttendEventTransactionService`에서 회차를 PK로 조회하고 mismatch를 따로 검증하는 이유를 남기고 싶다 -> 코드 주석
+
+주의:
+
+- 현재 프로젝트는 `src/main/resources/application.yml`에서 `ddl-auto: none`이다.
+- 그래서 Entity에 `@Comment`를 붙여도 DB comment가 자동 반영되지 않을 수 있다.
+- 이 경우 DB comment가 정말 필요하면 마이그레이션 SQL이나 DDL에서 관리하는 쪽이 더 확실하다.
+
+즉, 이번 출석체크 기준으로는 아래처럼 이해하면 된다.
+
+- `response DTO`: `@Schema`
+- `application/service`: 코드 주석
+- `entity`: `@Comment`는 가능하지만, 실제 DB 반영 방식까지 같이 봐야 한다
+
+## 12. 다음에 DTO를 추가할 때 체크할 질문
 
 새 DTO를 만들 때는 아래 순서대로 보면 된다.
 
@@ -296,7 +356,7 @@ AttendEventTransactionService
 4. 이름보다 패키지가 역할을 더 잘 설명해 주는가
 5. 굳이 새 DTO가 필요 없는 건 아닌가
 
-## 12. 이번 정리에서 기대한 효과
+## 13. 이번 정리에서 기대한 효과
 
 - `application/dto/attendance` 내부 역할 구분이 눈에 들어온다.
 - `service result`와 `service internal`이 덜 섞인다.
