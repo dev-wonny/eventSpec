@@ -1,7 +1,7 @@
 package com.event.presentation.dto.response;
 
 import com.event.application.dto.attendance.AttendEventResult;
-import com.event.domain.model.RewardType;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import lombok.Builder;
 
@@ -11,14 +11,21 @@ import lombok.Builder;
  * api 문서에 정해진 이벤트 응모 결과 dto
  * 출석체크형 이벤트 (ATTENDANCE): roundId = 해당 날짜 회차 → 출석 + 응모 + 즉시 포인트 지급 결과 포함
  */
+@Schema(description = "출석 이벤트 응모 응답")
 @Builder
 public record EventEntryResponse(
+        @Schema(description = "응모 ID")
         Long entryId,
+        @Schema(description = "응모 시각")
         Instant appliedAt,
+        @Schema(description = "응모한 회차 번호")
         Integer roundNo,
+        @Schema(description = "당첨 여부")
         Boolean isWinner,
-        WinResponse win,
-        AttendanceResponse attendance
+        @Schema(description = "당첨 정보. 미당첨 시 null")
+        EventEntryWinResponse win,
+        @Schema(description = "출석 현황 요약")
+        AttendanceSummaryResponse attendance
 ) {
 
     public static EventEntryResponse from(AttendEventResult result) {
@@ -27,50 +34,8 @@ public record EventEntryResponse(
                 .appliedAt(result.appliedAt())
                 .roundNo(result.roundNo())
                 .isWinner(result.isWinner())
-                .win(WinResponse.from(result))
-                .attendance(AttendanceResponse.from(result))
+                .win(EventEntryWinResponse.from(result.win()))
+                .attendance(AttendanceSummaryResponse.from(result.attendance()))
                 .build();
-    }
-
-    @Builder
-    public record WinResponse(
-            Long winId,
-            String prizeName,
-            RewardType rewardType,
-            Integer pointAmount,
-            String couponCode
-    ) {
-
-        public static WinResponse from(AttendEventResult result) {
-            if (result.win() == null) {
-                return null;
-            }
-
-            return WinResponse.builder()
-                    .winId(result.win().winId())
-                    .prizeName(result.win().prizeName())
-                    .rewardType(result.win().rewardType())
-                    .pointAmount(result.win().pointAmount())
-                    .couponCode(result.win().couponCode())
-                    .build();
-        }
-    }
-
-    @Builder
-    public record AttendanceResponse(
-            Integer attendedDays,
-            Integer totalDays
-    ) {
-
-        public static AttendanceResponse from(AttendEventResult result) {
-            if (result.attendance() == null) {
-                return null;
-            }
-
-            return AttendanceResponse.builder()
-                    .attendedDays(result.attendance().attendedDays())
-                    .totalDays(result.attendance().totalDays())
-                    .build();
-        }
     }
 }

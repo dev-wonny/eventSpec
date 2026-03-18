@@ -16,6 +16,7 @@
 - `test-scenarios.md`: 테스트 및 인수 조건
 - `open-questions.md`: 구현 전 확정이 필요한 항목
 - `traceability.md`: 요구사항과 규칙/API/데이터/테스트 연결 상태
+- `../../shared/openapi-response-schema-guide.md`: Swagger 응답 DTO 문서화 기준
 
 ## 현재 상태
 

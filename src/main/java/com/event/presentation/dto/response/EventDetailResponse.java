@@ -1,15 +1,11 @@
 package com.event.presentation.dto.response;
 
 import com.event.application.dto.event.EventDetailDto;
-import com.event.application.dto.event.EventRoundDto;
-import com.event.domain.model.AttendanceStatus;
 import com.event.domain.model.EventType;
-import com.event.domain.model.RewardType;
-import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -18,21 +14,36 @@ import java.util.List;
  * api 문서에 정해진 출석체크 참여 상태 조회 결과 dto
  * X-Member-Id 있음: 해당 회원의 출석 상태(ATTENDED / MISSED / TODAY / FUTURE) 포함
  */
+@Schema(description = "출석 이벤트 상세 조회 응답")
 @Builder
 public record EventDetailResponse(
+        @Schema(description = "이벤트 ID")
         Long eventId,
+        @Schema(description = "이벤트명")
         String eventName,
+        @Schema(description = "이벤트 유형")
         EventType eventType,
+        @Schema(description = "이벤트 시작 시각")
         Instant startAt,
+        @Schema(description = "이벤트 종료 시각")
         Instant endAt,
+        @Schema(description = "공급사 ID")
         Long supplierId,
+        @Schema(description = "이벤트 URL")
         String eventUrl,
+        @Schema(description = "노출 우선순위")
         Integer priority,
+        @Schema(description = "이벤트 활성화 여부")
         Boolean isActive,
+        @Schema(description = "이벤트 노출 여부")
         Boolean isVisible,
+        @Schema(description = "이벤트 설명")
         String description,
+        @Schema(description = "전체 회차 수")
         Integer totalCount,
-        List<RoundResponse> rounds,
+        @Schema(description = "이벤트 회차 목록")
+        List<EventRoundResponse> rounds,
+        @Schema(description = "출석 요약 정보. 회원 식별 헤더가 없으면 null")
         AttendanceSummaryResponse attendanceSummary
 ) {
 
@@ -50,68 +61,8 @@ public record EventDetailResponse(
                 .isVisible(dto.isVisible())
                 .description(dto.description())
                 .totalCount(dto.totalCount())
-                .rounds(dto.rounds().stream().map(RoundResponse::from).toList())
-                .attendanceSummary(AttendanceSummaryResponse.from(dto))
+                .rounds(dto.rounds().stream().map(EventRoundResponse::from).toList())
+                .attendanceSummary(AttendanceSummaryResponse.from(dto.attendanceSummary()))
                 .build();
-    }
-
-    @Builder
-    public record RoundResponse(
-            Long roundId,
-            Integer roundNo,
-            LocalDate roundDate,
-            @JsonInclude(JsonInclude.Include.ALWAYS)
-            AttendanceStatus status,
-            @JsonInclude(JsonInclude.Include.ALWAYS)
-            WinResponse win
-    ) {
-
-        public static RoundResponse from(EventRoundDto dto) {
-            return RoundResponse.builder()
-                    .roundId(dto.roundId())
-                    .roundNo(dto.roundNo())
-                    .roundDate(dto.roundDate())
-                    .status(dto.status())
-                    .win(WinResponse.from(dto))
-                    .build();
-        }
-    }
-
-    @Builder
-    public record WinResponse(
-            String prizeName,
-            RewardType rewardType,
-            Integer pointAmount
-    ) {
-
-        public static WinResponse from(EventRoundDto dto) {
-            if (dto.win() == null) {
-                return null;
-            }
-
-            return WinResponse.builder()
-                    .prizeName(dto.win().prizeName())
-                    .rewardType(dto.win().rewardType())
-                    .pointAmount(dto.win().pointAmount())
-                    .build();
-        }
-    }
-
-    @Builder
-    public record AttendanceSummaryResponse(
-            Integer attendedDays,
-            Integer totalDays
-    ) {
-
-        public static AttendanceSummaryResponse from(EventDetailDto dto) {
-            if (dto.attendanceSummary() == null) {
-                return null;
-            }
-
-            return AttendanceSummaryResponse.builder()
-                    .attendedDays(dto.attendanceSummary().attendedDays())
-                    .totalDays(dto.attendanceSummary().totalDays())
-                    .build();
-        }
     }
 }

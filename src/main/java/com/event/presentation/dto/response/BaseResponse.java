@@ -2,14 +2,20 @@ package com.event.presentation.dto.response;
 
 import com.event.domain.exception.ResponseCode;
 import com.event.domain.exception.code.CommonCode;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import lombok.Builder;
 
+@Schema(description = "공통 API 응답")
 @Builder
 public record BaseResponse<T>(
+        @Schema(description = "응답 코드")
         String code,
+        @Schema(description = "응답 메시지")
         String message,
+        @Schema(description = "응답 시각")
         Instant timestamp,
+        @Schema(description = "응답 데이터")
         T data
 ) {
 
