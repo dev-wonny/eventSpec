@@ -1,6 +1,6 @@
 package com.event.application.port.output;
 
-import com.event.application.dto.attendance.PointGrantCommand;
+import com.event.application.dto.attendance.external.PointGrantCommand;
 
 public interface PointRewardFailureAlertPort {
 

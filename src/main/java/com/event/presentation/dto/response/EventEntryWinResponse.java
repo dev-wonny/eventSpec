@@ -1,6 +1,6 @@
 package com.event.presentation.dto.response;
 
-import com.event.application.dto.attendance.AttendanceWinDto;
+import com.event.application.dto.attendance.result.AttendanceWinDto;
 import com.event.domain.model.RewardType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;

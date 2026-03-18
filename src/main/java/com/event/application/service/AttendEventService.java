@@ -1,16 +1,16 @@
 package com.event.application.service;
 
-import com.event.application.dto.attendance.AttendEventCommand;
-import com.event.application.dto.attendance.AttendEventResult;
-import com.event.application.dto.attendance.AttendEventTransactionResult;
-import com.event.application.dto.attendance.PointGrantCommand;
+import com.event.application.dto.attendance.command.AttendEventCommand;
+import com.event.application.dto.attendance.external.PointGrantCommand;
+import com.event.application.dto.attendance.internal.AttendEventTransactionResult;
+import com.event.application.dto.attendance.result.AttendEventResult;
 import com.event.application.port.input.AttendEventUseCase;
 import com.event.application.port.output.PointRewardFailureAlertPort;
 import com.event.application.port.output.PointRewardPort;
-import com.event.common.logging.LogContextKeys;
 import com.event.domain.exception.code.RewardCode;
 import com.event.infrastructure.external.point.client.PointApiFailedException;
 import com.event.infrastructure.external.point.client.PointApiTimeoutException;
+import com.event.infrastructure.logging.LogContextKeys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

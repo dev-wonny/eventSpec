@@ -1,7 +1,7 @@
 package com.event.application.service;
 
-import com.event.application.dto.attendance.AttendEventResult;
-import com.event.application.dto.attendance.AttendanceRewardInfo;
+import com.event.application.dto.attendance.internal.AttendanceRewardInfo;
+import com.event.application.dto.attendance.result.AttendEventResult;
 import com.event.application.port.output.EventEntryCommandPort;
 import com.event.application.port.output.EventWinCommandPort;
 import com.event.domain.entity.EventApplicantEntity;

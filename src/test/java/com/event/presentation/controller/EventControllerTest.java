@@ -1,12 +1,13 @@
 package com.event.presentation.controller;
 
-import com.event.application.dto.attendance.AttendanceSummaryDto;
+import com.event.application.dto.attendance.result.AttendanceSummaryDto;
 import com.event.application.dto.event.EventDetailDto;
 import com.event.application.dto.event.EventRoundDto;
 import com.event.application.dto.event.GetEventDetailQuery;
 import com.event.application.port.input.GetEventDetailUseCase;
 import com.event.domain.model.AttendanceStatus;
 import com.event.domain.model.EventType;
+import com.event.presentation.header.ApiHeaderNames;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -94,7 +95,7 @@ class EventControllerTest {
         ));
 
         mockMvc.perform(get("/event/v1/events/1")
-                        .header("X-Member-Id", "999")
+                        .header(ApiHeaderNames.X_MEMBER_ID, "999")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rounds[0].status").value("ATTENDED"))

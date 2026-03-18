@@ -1,7 +1,8 @@
 package com.event.presentation.controller;
 
-import com.event.application.dto.attendance.AttendEventCommand;
+import com.event.application.dto.attendance.command.AttendEventCommand;
 import com.event.application.port.input.AttendEventUseCase;
+import com.event.presentation.header.ApiHeaderNames;
 import com.event.presentation.dto.response.BaseResponse;
 import com.event.presentation.dto.response.EventEntryResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,7 +27,7 @@ public class EventEntryController {
     public BaseResponse<EventEntryResponse> enterEvent(
             @PathVariable Long eventId,
             @PathVariable Long roundId,
-            @RequestHeader("X-Member-Id") Long memberId
+            @RequestHeader(ApiHeaderNames.X_MEMBER_ID) Long memberId
     ) {
         EventEntryResponse response = EventEntryResponse.from(
                 attendEventUseCase.attend(AttendEventCommand.of(eventId, roundId, memberId))

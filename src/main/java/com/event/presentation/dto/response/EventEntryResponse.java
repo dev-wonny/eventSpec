@@ -1,6 +1,6 @@
 package com.event.presentation.dto.response;
 
-import com.event.application.dto.attendance.AttendEventResult;
+import com.event.application.dto.attendance.result.AttendEventResult;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import lombok.Builder;
@@ -10,6 +10,8 @@ import lombok.Builder;
  * POST https://event-api.dolfarmer.com/event/v1/events/{eventId}/rounds/{roundId}/entries
  * api 문서에 정해진 이벤트 응모 결과 dto
  * 출석체크형 이벤트 (ATTENDANCE): roundId = 해당 날짜 회차 → 출석 + 응모 + 즉시 포인트 지급 결과 포함
+ *
+ * application result를 외부 응답 계약에 맞게 변환하는 presentation DTO다.
  */
 @Schema(description = "출석 이벤트 응모 응답")
 @Builder

@@ -1,7 +1,7 @@
 package com.event.infrastructure.external.point;
 
-import com.event.application.dto.attendance.PointGrantCommand;
-import com.event.application.dto.attendance.PointGrantResult;
+import com.event.application.dto.attendance.external.PointGrantCommand;
+import com.event.application.dto.attendance.external.PointGrantResult;
 import com.event.application.port.output.PointRewardPort;
 import com.event.infrastructure.external.point.client.PointApiFailedException;
 import com.event.infrastructure.external.point.client.PointApiTimeoutException;

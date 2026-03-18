@@ -1,6 +1,6 @@
 package com.event.infrastructure.external.point.client;
 
-import com.event.application.dto.attendance.PointGrantCommand;
+import com.event.application.dto.attendance.external.PointGrantCommand;
 import lombok.Builder;
 
 @Builder

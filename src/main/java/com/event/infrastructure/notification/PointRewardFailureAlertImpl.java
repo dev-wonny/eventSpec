@@ -1,6 +1,6 @@
 package com.event.infrastructure.notification;
 
-import com.event.application.dto.attendance.PointGrantCommand;
+import com.event.application.dto.attendance.external.PointGrantCommand;
 import com.event.application.port.output.PointRewardFailureAlertPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

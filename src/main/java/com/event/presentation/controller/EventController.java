@@ -2,6 +2,7 @@ package com.event.presentation.controller;
 
 import com.event.application.dto.event.GetEventDetailQuery;
 import com.event.application.port.input.GetEventDetailUseCase;
+import com.event.presentation.header.ApiHeaderNames;
 import com.event.presentation.dto.response.BaseResponse;
 import com.event.presentation.dto.response.EventDetailResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,7 +26,7 @@ public class EventController {
     @GetMapping("/{eventId}")
     public BaseResponse<EventDetailResponse> getEvent(
             @PathVariable Long eventId,
-            @RequestHeader(value = "X-Member-Id", required = false) Long memberId
+            @RequestHeader(value = ApiHeaderNames.X_MEMBER_ID, required = false) Long memberId
     ) {
         EventDetailResponse response = EventDetailResponse.from(
                 getEventDetailUseCase.getEventDetail(GetEventDetailQuery.of(eventId, memberId))

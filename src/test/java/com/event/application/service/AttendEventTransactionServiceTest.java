@@ -1,11 +1,11 @@
 package com.event.application.service;
 
-import com.event.application.dto.attendance.AttendEventCommand;
-import com.event.application.dto.attendance.AttendEventResult;
-import com.event.application.dto.attendance.AttendEventTransactionResult;
-import com.event.application.dto.attendance.AttendanceRewardInfo;
-import com.event.application.dto.attendance.AttendanceSummaryDto;
-import com.event.application.dto.attendance.AttendanceWinDto;
+import com.event.application.dto.attendance.command.AttendEventCommand;
+import com.event.application.dto.attendance.internal.AttendEventTransactionResult;
+import com.event.application.dto.attendance.internal.AttendanceRewardInfo;
+import com.event.application.dto.attendance.result.AttendEventResult;
+import com.event.application.dto.attendance.result.AttendanceSummaryDto;
+import com.event.application.dto.attendance.result.AttendanceWinDto;
 import com.event.application.port.output.EventApplicantCommandPort;
 import com.event.application.port.output.EventEntryQueryPort;
 import com.event.application.port.output.EventQueryPort;

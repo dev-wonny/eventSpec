@@ -1,6 +1,6 @@
 package com.event.presentation.dto.response;
 
-import com.event.application.dto.attendance.AttendanceSummaryDto;
+import com.event.application.dto.attendance.result.AttendanceSummaryDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 

@@ -1,6 +1,6 @@
 package com.event.application.service;
 
-import com.event.application.dto.attendance.AttendanceSummaryDto;
+import com.event.application.dto.attendance.result.AttendanceSummaryDto;
 import com.event.application.dto.event.EventDetailDto;
 import com.event.application.dto.event.EventRoundDto;
 import com.event.application.dto.event.EventWinInfoDto;
@@ -12,7 +12,6 @@ import com.event.application.port.output.EventRoundPrizeQueryPort;
 import com.event.application.port.output.EventRoundQueryPort;
 import com.event.application.port.output.EventWinQueryPort;
 import com.event.application.port.output.PrizeQueryPort;
-import com.event.common.util.AppTimeZones;
 import com.event.domain.entity.EventEntity;
 import com.event.domain.entity.EventRoundEntity;
 import com.event.domain.entity.EventRoundPrizeEntity;
@@ -22,6 +21,7 @@ import com.event.domain.exception.BusinessException;
 import com.event.domain.exception.code.EventCode;
 import com.event.domain.model.AttendanceStatus;
 import com.event.domain.model.EventType;
+import com.event.domain.util.AppTimeZones;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;

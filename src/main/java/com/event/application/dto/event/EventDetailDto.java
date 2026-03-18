@@ -1,6 +1,6 @@
 package com.event.application.dto.event;
 
-import com.event.application.dto.attendance.AttendanceSummaryDto;
+import com.event.application.dto.attendance.result.AttendanceSummaryDto;
 import com.event.domain.entity.EventEntity;
 import com.event.domain.model.EventType;
 import java.time.Instant;

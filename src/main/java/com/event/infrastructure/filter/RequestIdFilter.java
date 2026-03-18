@@ -1,6 +1,6 @@
 package com.event.infrastructure.filter;
 
-import com.event.common.logging.LogContextKeys;
+import com.event.infrastructure.logging.LogContextKeys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,4 +41,3 @@ public class RequestIdFilter extends OncePerRequestFilter {
         }
     }
 }
-

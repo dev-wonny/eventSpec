@@ -1,12 +1,13 @@
 package com.event.presentation.controller;
 
-import com.event.application.dto.attendance.AttendEventResult;
-import com.event.application.dto.attendance.AttendanceSummaryDto;
-import com.event.application.dto.attendance.AttendanceWinDto;
+import com.event.application.dto.attendance.result.AttendEventResult;
+import com.event.application.dto.attendance.result.AttendanceSummaryDto;
+import com.event.application.dto.attendance.result.AttendanceWinDto;
 import com.event.application.port.input.AttendEventUseCase;
 import com.event.domain.exception.BusinessException;
 import com.event.domain.exception.code.EntryCode;
 import com.event.domain.model.RewardType;
+import com.event.presentation.header.ApiHeaderNames;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -43,7 +44,7 @@ class EventEntryControllerTest {
         ));
 
         mockMvc.perform(post("/event/v1/events/1/rounds/2/entries")
-                        .header("X-Member-Id", "999")
+                        .header(ApiHeaderNames.X_MEMBER_ID, "999")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
@@ -58,7 +59,8 @@ class EventEntryControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-                .andExpect(jsonPath("$.data.X-Member-Id").value("X-Member-Id 헤더는 필수입니다."));
+                .andExpect(jsonPath("$.data['" + ApiHeaderNames.X_MEMBER_ID + "']")
+                        .value(ApiHeaderNames.X_MEMBER_ID + " 헤더는 필수입니다."));
     }
 
     @Test
@@ -67,7 +69,7 @@ class EventEntryControllerTest {
                 .willThrow(BusinessException.from(EntryCode.ENTRY_ALREADY_APPLIED));
 
         mockMvc.perform(post("/event/v1/events/1/rounds/2/entries")
-                        .header("X-Member-Id", "999")
+                        .header(ApiHeaderNames.X_MEMBER_ID, "999")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ENTRY_ALREADY_APPLIED"))

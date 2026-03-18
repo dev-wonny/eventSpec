@@ -1,4 +1,4 @@
-package com.event.common.logging;
+package com.event.infrastructure.logging;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -13,4 +13,3 @@ public final class LogContextKeys {
     public static final String ROUND_ID = "roundId";
     public static final String MEMBER_ID = "memberId";
 }
-

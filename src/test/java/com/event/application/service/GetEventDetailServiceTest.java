@@ -8,7 +8,6 @@ import com.event.application.port.output.EventRoundPrizeQueryPort;
 import com.event.application.port.output.EventRoundQueryPort;
 import com.event.application.port.output.EventWinQueryPort;
 import com.event.application.port.output.PrizeQueryPort;
-import com.event.common.util.AppTimeZones;
 import com.event.domain.entity.EventEntity;
 import com.event.domain.entity.EventEntryEntity;
 import com.event.domain.entity.EventRoundEntity;
@@ -18,6 +17,7 @@ import com.event.domain.entity.PrizeEntity;
 import com.event.domain.model.AttendanceStatus;
 import com.event.domain.model.EventType;
 import com.event.domain.model.RewardType;
+import com.event.domain.util.AppTimeZones;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -154,4 +154,3 @@ class GetEventDetailServiceTest {
                 .build();
     }
 }
-
