@@ -6,26 +6,26 @@
 
 | ID | 시나리오 | 기대 결과 | 연결 규칙 |
 | --- | --- | --- | --- |
-| ATT-TEST-001 | 보상 매핑이 있는 회차의 첫 출석 요청 | applicant 생성 가능 여부 검증 후 `event_applicant`, `event_entry` 저장, 외부 point API 성공, `event_win` 저장 순서로 커밋된다 | ATT-RULE-002, ATT-RULE-003, ATT-RULE-004, ATT-RULE-009, ATT-RULE-012 |
-| ATT-TEST-002 | 보상 매핑이 있는 다른 날짜 회차 재출석 요청 | 다른 회차의 `event_applicant`와 `event_entry`가 새로 저장되고 외부 point API 성공 시 `event_win`이 추가 저장된다 | ATT-RULE-001, ATT-RULE-003, ATT-RULE-004, ATT-RULE-009, ATT-RULE-012 |
+| ATT-TEST-001 | 보상 매핑이 있는 회차의 첫 출석 요청 | `event_applicant`, `event_entry`, `event_win`이 먼저 커밋되고 외부 point API가 후행 호출된다 | ATT-RULE-002, ATT-RULE-003, ATT-RULE-004, ATT-RULE-009, ATT-RULE-012 |
+| ATT-TEST-002 | 보상 매핑이 있는 다른 날짜 회차 재출석 요청 | 다른 회차의 `event_applicant`, `event_entry`, `event_win`이 새로 저장되고 커밋 후 외부 point API가 호출된다 | ATT-RULE-001, ATT-RULE-003, ATT-RULE-004, ATT-RULE-009, ATT-RULE-012 |
 | ATT-TEST-003 | 같은 `event_id + round_id + member_id`로 재응모 요청 | `uq_event_applicant_event_round_member` 기준으로 중복 출석을 막고 추가 applicant가 생기지 않는다 | ATT-RULE-005 |
-| ATT-TEST-004 | 존재하지 않는 이벤트 또는 회차로 요청 | business 오류를 반환한다 | ATT-RULE-006 |
-| ATT-TEST-005 | 이벤트와 회차가 서로 맞지 않는 요청 | business 오류를 반환한다 | ATT-RULE-006 |
-| ATT-TEST-006 | 비활성/삭제/기간 외 이벤트 또는 회차 요청 | 출석 불가 응답을 반환한다 | ATT-RULE-002 |
-| ATT-TEST-007 | 동일 `event_id + round_id + member_id` 조건의 동시 출석 요청 2건 이상 발생 | Service 중복 검증과 `uq_event_applicant_event_round_member` unique에 의해 최종 유효 applicant는 한 건만 남고, 나머지는 이미 출석 오류로 정리된다 | ATT-RULE-005, ATT-RULE-007 |
+| ATT-TEST-004 | 존재하지 않는 이벤트 또는 회차로 요청 | `EVENT_NOT_FOUND` 또는 `EVENT_ROUND_NOT_FOUND`를 반환한다 | ATT-RULE-006 |
+| ATT-TEST-005 | 이벤트와 회차가 서로 맞지 않는 요청 | `ROUND_EVENT_MISMATCH`를 반환한다 | ATT-RULE-006 |
+| ATT-TEST-006 | 비활성/삭제/기간 외 이벤트 또는 회차 요청 | 출석 불가 상태에 맞는 domain code(`EVENT_NOT_ACTIVE`, `EVENT_NOT_STARTED`, `EVENT_EXPIRED`)와 안내형 메시지를 반환한다 | ATT-RULE-002 |
+| ATT-TEST-007 | 동일 `event_id + round_id + member_id` 조건의 동시 출석 요청 2건 이상 발생 | Service 중복 검증과 `uq_event_applicant_event_round_member` unique에 의해 최종 유효 applicant는 한 건만 남고, 나머지는 `ENTRY_ALREADY_APPLIED`로 정리된다 | ATT-RULE-005, ATT-RULE-007 |
 | ATT-TEST-008 | `GET /events/{eventId}`를 `X-Member-Id`와 함께 호출 | 각 회차의 `ATTENDED / MISSED / TODAY / FUTURE` 상태와 보상 이력이 일관되게 반환된다 | ATT-RULE-006, ATT-RULE-008, ATT-RULE-009, ATT-RULE-014 |
 | ATT-TEST-009 | 같은 회원이 여러 날짜 회차에 출석 요청 | `event_applicant`는 `event_id + round_id + member_id` 기준으로 각 날짜마다 한 건씩 생성된다 | ATT-RULE-003, ATT-RULE-006 |
 | ATT-TEST-010 | 월간 이벤트의 마지막 날짜 회차 출석 요청 | 올바른 `event_round`가 선택되고 출석이 저장된다 | ATT-RULE-001, ATT-RULE-002 |
-| ATT-TEST-011 | 외부 point API 실패 | `event_entry`, `event_win`이 모두 롤백되고 출석 실패 응답을 반환한다 | ATT-RULE-009, ATT-RULE-012 |
-| ATT-TEST-012 | 외부 point API 무응답 또는 타임아웃 | `event_entry`, `event_win`이 모두 롤백되고 `INTERNAL_ERROR`와 `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`를 반환한다 | ATT-RULE-012, ATT-RULE-013 |
+| ATT-TEST-011 | 외부 point API 실패 | 로컬 `event_applicant`, `event_entry`, `event_win`은 유지되고 오류 로그와 운영 알림이 남는다 | ATT-RULE-009, ATT-RULE-012 |
+| ATT-TEST-012 | 외부 point API 무응답 또는 타임아웃 | 로컬 데이터는 유지되고 운영 알림 대상이 되며 사용자 응답은 출석 성공으로 유지된다 | ATT-RULE-012, ATT-RULE-013 |
 | ATT-TEST-026 | point API retry 발생 | 같은 `idempotency_key = event_id + round_id + member_id`로 중복 point 지급이 발생하지 않는다 | ATT-RULE-012, ATT-RULE-013 |
 | ATT-TEST-027 | point 지급 성공 후 event 서버 타임아웃 발생 뒤 재시도 | point 시스템의 `idempotency_key`가 중복 지급을 막는다 | ATT-RULE-012, ATT-RULE-013 |
-| ATT-TEST-033 | point API 성공 후 DB 커밋 실패 뒤 사용자 재시도 | 같은 `idempotency_key = event_id + round_id + member_id` 재호출로 중복 지급 없이 local `event_entry`, `event_win`이 복구된다 | ATT-RULE-012, ATT-RULE-013 |
+| ATT-TEST-033 | 운영 재처리로 point API를 다시 호출하는 경우 | 같은 `idempotency_key = event_id + round_id + member_id` 재호출로 중복 지급이 발생하지 않는다 | ATT-RULE-012, ATT-RULE-013 |
 | ATT-TEST-034 | 외부 point API timeout 설정 확인 | `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초` 기준으로 client 설정이 반영된다 | ATT-RULE-013, ATT-SVC-008 |
 | ATT-TEST-013 | 출석 성공 시 지급 point 연결 확인 | `event_win.event_round_prize_id`가 회차의 point 보상 정책을 가리킨다 | ATT-RULE-009, ATT-RULE-010 |
 | ATT-TEST-023 | 출석 회차에 보상 매핑이 없는 경우 | 외부 point API를 호출하지 않고 `event_entry`만 저장되며 응답 `win`은 `null`이다 | ATT-RULE-009, ATT-RULE-010, ATT-RULE-012 |
 | ATT-TEST-024 | 출석 회차에 active `event_round_prize`가 2개 이상 설정된 경우 | 운영/검증 오류로 처리하고 출석을 진행하지 않는다 | ATT-RULE-009, ATT-RULE-010 |
-| ATT-TEST-022 | applicant를 생성할 수 없는 상태의 출석 요청 | applicant 오류를 반환하고 `event_entry`, `event_win`이 저장되지 않는다 | ATT-RULE-003, ATT-RULE-006 |
+| ATT-TEST-022 | applicant 저장 중 예외가 발생한 출석 요청 | applicant 단계에서 요청이 중단되고 `event_entry`, `event_win`이 저장되지 않는다 | ATT-RULE-003, ATT-RULE-006 |
 | ATT-TEST-020 | `GET /events/{eventId}`를 `X-Member-Id` 없이 호출 | 전체 회차 기본 정보만 반환되고 `status = null`, `win = null`이다 | ATT-RULE-014 |
 | ATT-TEST-021 | `POST /entries`를 `X-Member-Id` 없이 호출 | `INVALID_REQUEST`와 헤더 오류 메시지를 반환한다 | ATT-RULE-006 |
 | ATT-TEST-028 | soft delete된 `event_applicant` 또는 `event_entry`가 있는 상태에서 같은 키로 다시 요청 | soft delete 레코드는 현재 유효값에서 제외되고, 동일 applicant 키로 재출석이 허용된다 | ATT-RULE-008, ATT-SVC-004, ATT-SVC-005 |
@@ -63,14 +63,14 @@
 
 ### ATT-TEST-019 현재 동기식 외부 연동 제약
 
-- 외부 point API 응답 지연 중에는 요청이 성공으로 확정되지 않아야 하며, 사용자에게는 실패/불가 상태가 반환되어야 한다.
+- 외부 point API 응답 지연 중에도 로컬 트랜잭션은 이미 커밋되어 있어야 하며, 실패 시 운영 보정 대상으로 남아야 한다.
 - 외부 point API 타임아웃은 최대 3초 안에 종료되어야 한다.
 
 ## 테스트 레벨 가이드
 
 - 단위 테스트: 회차 판정, applicant 생성 판정, 중복 정책, 상태 계산
-- 통합 테스트: API 요청/응답, 외부 point API 성공/실패, 트랜잭션 롤백
-- 통합 테스트: API 요청/응답, 동시 출석 요청, point API idempotency, 외부 point API 성공/실패, 트랜잭션 롤백
+- 통합 테스트: API 요청/응답, 외부 point API 성공/실패, 로컬 커밋 유지 여부
+- 통합 테스트: API 요청/응답, 동시 출석 요청, point API idempotency, 외부 point API 성공/실패, 운영 알림 처리
 - 저장소 테스트: 회차별 applicant 조회, `event_id + round_id + member_id` 기준 applicant 중복 검증, 이벤트-회차 정합성 검증, 출석 회차의 단일 prize 매핑 조회, 지급 이력 조회
 
 ## 추가 확정 시 보강 항목

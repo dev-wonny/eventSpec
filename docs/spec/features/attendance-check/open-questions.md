@@ -6,11 +6,12 @@
 
 - [x] 출석 단위는 `event_round` 기준의 일자성 회차다.
 - [x] 월간 출석 이벤트는 같은 `event_id` 아래 날짜 수만큼 `event_round`를 가진다.
-- [x] `event_applicant`는 eligibility 테이블이 아니라 회차별 applicant 기준 테이블로 사용된다.
+- [x] `event_applicant`는 사전 참여 가능 대상자 테이블이 아니라 회차별 applicant 기준 테이블로 사용된다.
 - [x] `event_applicant`는 `(event_id, round_id, member_id)` unique로 동작한다.
+- [x] 이번 출석체크에서는 회원별 사전 참여 가능 대상 체크를 두지 않는다.
 - [x] `event_entry`는 응모권/참여 이력 테이블이며 같은 회차에도 여러 건이 저장될 수 있다.
 - [x] 추첨형 이벤트에서는 `event_entry.is_winner`가 나중에 update될 수 있다.
-- [x] `event_win`은 실제 지급 보상과 외부 보상 API 성공 이력을 저장한다.
+- [x] `event_win`은 로컬 당첨/보상 확정 이력을 저장한다.
 - [x] `event.supplier_id`는 현재 위드 DB 기준 값을 사용한다.
 - [x] 추후 버터 DB로 위드 데이터를 마이그레이션해 `supplier_id`를 이어받는다.
 - [x] 현재 `supplier_id`는 돌쇠네 자체 서비스 범위에만 적용한다.
@@ -32,9 +33,9 @@
 - [x] 출석 회차에 보상 매핑이 없으면 point를 지급하지 않는다.
 - [x] 랜덤 리워드는 회차당 여러 보상을 둘 수 있다.
 - [x] `prize`는 운영 세팅 완료 후 수정하지 않고, 변경이 필요하면 새 `prize`를 생성한다.
-- [x] 현재 출석 성공은 보상 매핑이 있는 경우 외부 point API 성공까지 포함한다.
-- [x] 외부 point API 실패 또는 무응답 시 `event_entry`, `event_win`은 롤백한다.
-- [x] 현재는 외부 API 동기 응답 기반이며, 무응답 시 프론트는 출석체크 불가 오류를 표시한다.
+- [x] 현재 출석 성공은 로컬 트랜잭션 커밋 기준이다.
+- [x] 외부 point API 실패 또는 무응답 시 로컬 데이터는 롤백하지 않고 운영 알림 대상으로 남긴다.
+- [x] 현재는 외부 API를 같은 요청 흐름에서 동기 호출하지만 트랜잭션 밖에서 처리한다.
 - [x] 애플리케이션 로그는 이번 범위에서 ELK로 적재한다.
 - [x] `GET`의 `TODAY / MISSED / FUTURE` 판정 기준 타임존은 한국 시간(`Asia/Seoul`)이다.
 - [x] `is_visible = FALSE`여도 직접 API 출석은 허용한다.
@@ -42,7 +43,7 @@
 ## 우선 확인 항목
 
 - [x] `event_entry.event_round_prize_id`는 보조값으로만 사용하며 `NULL` 가능하다.
-- [x] 실제 지급 보상의 SoT는 `event_win.event_round_prize_id`다.
+- [x] 로컬 보상 확정의 SoT는 `event_win.event_round_prize_id`다.
 - [x] 랜덤 리워드의 기본 계산 규칙은 `weight` 기반으로 본다.
 - [x] `weight`는 DB 기본값 `1`을 사용한다.
 - [ ] `GET`에서 `X-Member-Id`가 없을 때 `attendanceSummary`를 생략할지, `totalDays`만 줄지
@@ -56,16 +57,17 @@
 - [ ] 감사 로그 수준은 어디까지 필요한가
 - [x] 랜덤 리워드의 꽝/미지급 케이스는 `event_win` 행 없이 처리한다.
 - [x] 외부 point API 타임아웃은 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`를 사용한다.
-- [x] 외부 point API 타임아웃은 외부 시스템 장애로 간주하고, 사용자에게 `INTERNAL_ERROR`와 `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`를 반환한다.
+- [x] 외부 point API 타임아웃은 외부 시스템 장애로 간주하고, 운영 알림 및 재처리 대상으로 관리한다.
 - [ ] 향후 AWS 기반 큐 전환 시 `event_win` 생성 시점을 어떻게 가져갈지
-- [x] 외부 point API 성공 후 DB 커밋 실패 시 point 보정 차감은 하지 않는다.
+- [x] 외부 point API 실패 후 자동 point 보정 차감은 하지 않는다.
 - [x] 외부 point API는 `idempotency_key = event_id + round_id + member_id`를 사용한다.
-- [x] DB 커밋 실패 후 사용자 재시도 시 같은 `idempotency_key`로 point API를 재호출하고 local `event_entry`, `event_win`을 복구한다.
+- [x] 운영 재처리나 수동 재호출 시 같은 `idempotency_key`로 point API를 재호출한다.
 
 ## API 상세 확정 항목
 
-- [x] API 응답 code는 `CommonCode` 기준으로 반환한다.
 - [x] 성공 응답 code는 `SUCCESS`를 사용한다.
+- [x] 실패 응답 code는 각 오류의 `ResponseCode.code`를 사용한다.
+- [x] business 예외는 domain code를, validation/system 예외는 `CommonCode`를 사용한다.
 - [x] GET 응답에서는 `createdAt`을 제거한다.
 - [x] GET 응답에서는 `supplierId`, `eventUrl`을 고정 노출한다.
 

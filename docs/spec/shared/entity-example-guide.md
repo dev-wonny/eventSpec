@@ -367,7 +367,7 @@ public class EventApplicantEntity extends BaseEntity {
 
 포인트:
 
-- 현재 의미는 이벤트 단위 eligibility 풀이 아니라 회차별 applicant 기준 데이터다.
+- 현재 의미는 이벤트 단위 사전 참여 가능 대상 풀이 아니라 회차별 applicant 기준 데이터다.
 - `(event_id, round_id, member_id)` 최소 unique는 DDL에서 관리한다.
 
 ## 8. EventEntryEntity 예시
@@ -488,8 +488,8 @@ public class EventWinEntity extends BaseEntity {
 
 포인트:
 
-- 외부 point API 성공 시에만 저장한다.
-- 출석체크에서는 point 지급 성공 이력이 된다.
+- 출석체크에서는 `event_entry`와 함께 로컬 트랜잭션 안에서 저장한다.
+- 외부 point API 실패 여부와는 별개로 당첨/보상 확정 이력을 나타낸다.
 
 ## 10. PrizeEntity 예시
 

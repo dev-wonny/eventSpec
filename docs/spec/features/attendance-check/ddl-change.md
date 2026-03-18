@@ -6,7 +6,7 @@
 
 - FK는 두지 않고 Service 검증으로 참조 정합성을 보장해야 한다.
 - 출석 이벤트는 `event_round` 기준으로 매일 출석 여부를 판정해야 한다.
-- `event_applicant`는 eligibility 테이블이 아니라 회차별 applicant 기준 테이블이어야 한다.
+- `event_applicant`는 사전 참여 가능 대상자 테이블이 아니라 회차별 applicant 기준 테이블이어야 한다.
 - `event_applicant`는 `(event_id, round_id, member_id)` 기준으로 한 건만 생성되어야 한다.
 - 출석체크는 회차당 보상 매핑이 `0..1`개여야 하고, 보상 매핑이 없으면 무보상 출석을 허용해야 한다.
 - 따라서 `event_entry`가 어떤 회차에 대한 참여 이력인지 직접 알아야 한다.
@@ -166,7 +166,7 @@ CREATE UNIQUE INDEX uq_event_applicant_event_round_member
 - `event_applicant`는 회차별 applicant 기준이며 출석 중복 제어의 기준이 된다.
 - `event_entry`는 응모권/참여 이력이므로 같은 회차에도 여러 건이 저장될 수 있다.
 - 추첨형 이벤트에서는 `event_entry.is_winner`를 나중에 update할 수 있다.
-- `event_entry.event_round_prize_id`는 보조값이며 실제 지급 보상의 SoT는 `event_win.event_round_prize_id`다.
+- `event_entry.event_round_prize_id`는 보조값이며 로컬 보상 확정의 SoT는 `event_win.event_round_prize_id`다.
 - FK가 없으므로 `round.event_id == event.id`, `event_applicant.event_id == event.id`, `event_win.entry_id == event_entry.id` 같은 참조 정합성은 Service에서 검증해야 한다.
 - 출석 중복의 비즈니스 판정은 `event_applicant (event_id, round_id, member_id)` 기준으로 애플리케이션과 unique에서 함께 방어한다.
 - 출석체크의 회차당 active `event_round_prize = 0..1` 제약은 현재 스키마만으로 직접 강제되지 않으므로 애플리케이션 또는 운영 검증이 필요하다.

@@ -1,6 +1,6 @@
 # API Error Handling And Response Specification
 
-이 문서는 이벤트 플랫폼의 API 응답 구조와 Validation / Business / System 예외 처리 방식을 정의한다. 목표는 API 응답 형식을 통일하고, Validation 처리를 단순화하며, 프론트엔드는 `CommonCode`만 의존하고 서버는 domain code와 `requestId`로 운영 추적이 가능하도록 만드는 것이다.
+이 문서는 이벤트 플랫폼의 API 응답 구조와 Validation / Business / System 예외 처리 방식을 정의한다. 목표는 API 응답 형식을 통일하고, Validation 처리를 단순화하며, 성공 응답은 `SUCCESS`, 실패 응답은 각 오류의 `code`를 일관되게 반환하고, 서버는 `requestId + commonCode + domainCode`로 운영 추적이 가능하도록 만드는 것이다.
 
 ## 1. 목적
 
@@ -24,8 +24,9 @@
 
 - Validation은 annotation message를 직접 사용한다.
 - Business는 domain enum code를 사용한다.
-- API 응답 body의 `code`는 `CommonCode` 기준으로 반환한다.
-- 로그와 운영 분석에는 domain code를 유지한다.
+- 성공 응답 body의 `code`는 `SUCCESS`를 사용한다.
+- 실패 응답 body의 `code`는 각 오류의 `ResponseCode.getCode()`를 사용한다.
+- `commonCode`는 HTTP status 및 운영 카테고리 분류에 사용한다.
 
 ## 3. 권장 패키지 구조
 
@@ -69,6 +70,7 @@ infrastructure
 `BaseResponse`는 아래 코드 형태로 고정한다.
 
 ```java
+@Builder
 public record BaseResponse<T>(
         String code,
         String message,
@@ -77,31 +79,39 @@ public record BaseResponse<T>(
 ) {
 
     public static <T> BaseResponse<T> of(ResponseCode code, T data) {
+        return BaseResponse.<T>builder()
+                .code(code.getCode())
+                .message(code.getMessage())
+                .timestamp(Instant.now())
+                .data(data)
+                .build();
+    }
 
-        return new BaseResponse<>(
-                code.getCode(),
-                code.getMessage(),
-                Instant.now(),
-                data
-        );
+    public static <T> BaseResponse<T> success(String message, T data) {
+        return BaseResponse.<T>builder()
+                .code(CommonCode.SUCCESS.getCode())
+                .message(message)
+                .timestamp(Instant.now())
+                .data(data)
+                .build();
     }
 
     public static BaseResponse<Void> error(ResponseCode code) {
-        return new BaseResponse<>(
-                code.getCommonCode().getCode(),
-                code.getMessage(),
-                Instant.now(),
-                null
-        );
+        return BaseResponse.<Void>builder()
+                .code(code.getCode())
+                .message(code.getMessage())
+                .timestamp(Instant.now())
+                .data(null)
+                .build();
     }
 
     public static <T> BaseResponse<T> error(CommonCode code, String message, T data) {
-        return new BaseResponse<>(
-                code.getCode(),
-                message,
-                Instant.now(),
-                data
-        );
+        return BaseResponse.<T>builder()
+                .code(code.getCode())
+                .message(message)
+                .timestamp(Instant.now())
+                .data(data)
+                .build();
     }
 }
 ```
@@ -109,10 +119,10 @@ public record BaseResponse<T>(
 설명:
 
 - 이 구현 자체는 고정이다.
-- 성공 응답은 `CommonCode.SUCCESS`를 사용해 `BaseResponse.of(...)`로 생성할 수 있다.
+- 성공 응답은 `BaseResponse.success(...)`를 사용하고 `code = SUCCESS`를 반환한다.
 - 오류 응답도 `BaseResponse.error(...)` 팩토리 메서드로 생성하는 것을 권장한다.
-- `BusinessException` 오류 응답은 `BaseResponse.error(ResponseCode code)`를 사용한다.
-- Validation 오류 응답은 `BaseResponse.error(CommonCode code, String message, T data)`를 사용한다.
+- `BusinessException` 오류 응답은 `BaseResponse.error(ResponseCode code)`를 사용하고, `code = domain code`를 반환한다.
+- Validation/System 오류 응답은 `BaseResponse.error(CommonCode code, String message, T data)`를 사용하고, `code = CommonCode.code`를 반환한다.
 
 ## 5. ResponseCode 인터페이스
 
@@ -121,23 +131,24 @@ public interface ResponseCode {
 
     HttpStatus getStatus();
 
-    String getCode();         // domain code
+    String getCode();         // API 응답 code
 
     String getMessage();      // 사용자 메시지
 
-    CommonCode getCommonCode(); // API 응답 카테고리
+    CommonCode getCommonCode(); // HTTP status / 운영 카테고리
 }
 ```
 
 핵심:
 
 - 서비스는 `ResponseCode` 기준으로 예외를 던진다.
-- 로그에는 `getCode()`의 domain code를 남긴다.
-- API 응답 body에는 `getCommonCode().getCode()`를 사용한다.
+- API 응답 body에는 `getCode()`를 사용한다.
+- Business 오류 로그에는 `getCode()`의 domain code를 남긴다.
+- HTTP status와 운영 카테고리는 `getCommonCode()`로 관리한다.
 
 ## 6. CommonCode
 
-프론트는 `CommonCode.code` 기준으로 분기한다.
+`CommonCode`는 HTTP status와 운영 카테고리 매핑 기준이다.
 
 ```java
 @Getter
@@ -169,8 +180,8 @@ public enum CommonCode implements ResponseCode {
 
 원칙:
 
-- 프론트는 `CommonCode`만 의존한다.
-- 세부 domain code가 늘어나도 프론트 분기 수는 늘리지 않는다.
+- Business domain code는 `CommonCode`에 매핑되어 HTTP status를 결정한다.
+- Validation/System 오류는 `CommonCode` 자체를 응답 code로 사용한다.
 - 공통 성공 코드는 `SUCCESS`를 사용한다.
 
 ## 7. Validation 처리 원칙
@@ -215,7 +226,7 @@ domain code enum은 아래 필드를 가진다.
 
 - `code`: 영어 enum 식별자
 - `message`: 한글 메시지
-- `commonCode`: API 응답 카테고리
+- `commonCode`: HTTP status / 운영 카테고리
 - `statusOverride`: 특정 상황에서 HTTP status override
 
 종류:
@@ -241,13 +252,19 @@ public enum EventCode implements ResponseCode {
 
     EVENT_NOT_STARTED(
         "EVENT_NOT_STARTED",
-        "이벤트 시작 전입니다.",
+        "이벤트 오픈 전이에요. 조금만 기다려 주세요.",
         CommonCode.BUSINESS_ERROR
     ),
 
     EVENT_EXPIRED(
         "EVENT_EXPIRED",
-        "이벤트 기간이 종료되었습니다.",
+        "이 이벤트는 참여가 마감되었어요.",
+        CommonCode.BUSINESS_ERROR
+    ),
+
+    EVENT_NOT_ACTIVE(
+        "EVENT_NOT_ACTIVE",
+        "현재 참여가 잠시 중단되었어요.",
         CommonCode.BUSINESS_ERROR
     ),
 
@@ -282,8 +299,8 @@ public enum EventCode implements ResponseCode {
 
 핵심:
 
-- domain code는 로그/운영 분석용 식별자다.
-- `commonCode`는 API 응답용 카테고리다.
+- domain code는 Business 오류의 API 응답 code이자 로그/운영 분석 식별자다.
+- `commonCode`는 HTTP status와 운영 카테고리다.
 - `statusOverride`가 없으면 `commonCode.status`를 따른다.
 
 ## 9. BusinessException
@@ -325,9 +342,9 @@ public ResponseEntity<BaseResponse<Void>> handleBusinessException(BusinessExcept
 처리 원칙:
 
 - HTTP status는 `rc.getStatus()`를 사용한다.
-- 응답 body의 `code`는 `rc.getCommonCode().getCode()`를 사용한다.
+- 응답 body의 `code`는 `rc.getCode()`를 사용한다.
 - 응답 body의 `message`는 domain code의 메시지를 사용한다.
-- domain code 자체는 로그에 남긴다.
+- 로그에는 `rc.getCommonCode().getCode()`와 `rc.getCode()`를 함께 남긴다.
 
 ### Validation 예외 처리
 
@@ -405,8 +422,8 @@ Business 오류:
 
 ```json
 {
-  "code": "CONFLICT",
-  "message": "이미 참여한 이벤트입니다.",
+  "code": "ENTRY_ALREADY_APPLIED",
+  "message": "이미 출석했습니다.",
   "timestamp": "2026-03-17T11:30:00Z",
   "data": null
 }
@@ -433,7 +450,7 @@ Business 오류:
 requestId=ab12cd34
 commonCode=CONFLICT
 domainCode=ENTRY_ALREADY_APPLIED
-message=이미 참여한 이벤트입니다.
+message=이미 출석했습니다.
 ```
 
 Validation 오류:
@@ -455,6 +472,6 @@ message=X-Member-Id 헤더는 필수입니다.
 
 - DTO Validation -> annotation message
 - Business Error -> domain code enum
-- API Response -> `CommonCode`
+- API Response -> success `SUCCESS`, error `ResponseCode.code`
 - Header required/optional -> controller `@RequestHeader`
 - Exception 처리 -> `GlobalExceptionHandler`

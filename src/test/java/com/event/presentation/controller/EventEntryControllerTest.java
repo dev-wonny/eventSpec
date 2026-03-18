@@ -4,6 +4,8 @@ import com.event.application.dto.attendance.AttendEventResult;
 import com.event.application.dto.attendance.AttendanceSummaryDto;
 import com.event.application.dto.attendance.AttendanceWinDto;
 import com.event.application.port.input.AttendEventUseCase;
+import com.event.domain.exception.BusinessException;
+import com.event.domain.exception.code.EntryCode;
 import com.event.domain.model.RewardType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,5 +60,17 @@ class EventEntryControllerTest {
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
                 .andExpect(jsonPath("$.data.X-Member-Id").value("X-Member-Id 헤더는 필수입니다."));
     }
-}
 
+    @Test
+    void enterEvent_shouldReturnDomainCode_whenBusinessExceptionOccurs() throws Exception {
+        given(attendEventUseCase.attend(any()))
+                .willThrow(BusinessException.from(EntryCode.ENTRY_ALREADY_APPLIED));
+
+        mockMvc.perform(post("/event/v1/events/1/rounds/2/entries")
+                        .header("X-Member-Id", "999")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ENTRY_ALREADY_APPLIED"))
+                .andExpect(jsonPath("$.message").value("이미 출석했습니다."));
+    }
+}

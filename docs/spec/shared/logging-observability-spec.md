@@ -69,14 +69,15 @@
 출석체크 유스케이스에서는 아래 로그를 남긴다.
 
 1. 요청 수신
-2. `event`, `round`, `applicant` 조회 결과
+2. `event`, `round` 조회 결과와 applicant insert 시도 결과
 3. `round.event_id == event.id` 정합성 검증 실패 여부
-4. 중복 출석 판정 결과
+4. `event_applicant` unique 충돌 여부
 5. 보상 매핑 존재 여부
 6. point API 요청 시작
 7. point API 성공/실패/타임아웃 결과
 8. `event_entry`, `event_win` 저장 결과
-9. 최종 응답 결과
+9. point API 성공/실패/타임아웃 결과와 운영 알림 여부
+10. 최종 응답 결과
 
 ### point API 타임아웃 로그 기준
 

@@ -2,11 +2,8 @@ package com.event.application.service;
 
 import com.event.application.dto.attendance.AttendEventResult;
 import com.event.application.dto.attendance.AttendanceRewardInfo;
-import com.event.application.dto.attendance.PointGrantCommand;
-import com.event.application.dto.attendance.PointGrantResult;
 import com.event.application.port.output.EventEntryCommandPort;
 import com.event.application.port.output.EventWinCommandPort;
-import com.event.application.port.output.PointRewardPort;
 import com.event.domain.entity.EventApplicantEntity;
 import com.event.domain.entity.EventEntryEntity;
 import com.event.domain.entity.EventRoundEntity;
@@ -15,8 +12,6 @@ import com.event.domain.model.RewardType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,14 +31,8 @@ class PointAttendanceProcessorTest {
     @Mock
     private EventWinCommandPort eventWinCommandPort;
 
-    @Mock
-    private PointRewardPort pointRewardPort;
-
     @InjectMocks
     private PointAttendanceProcessor pointAttendanceProcessor;
-
-    @Captor
-    private ArgumentCaptor<PointGrantCommand> pointGrantCommandCaptor;
 
     private EventApplicantEntity applicant;
     private EventRoundEntity round;
@@ -90,12 +79,11 @@ class PointAttendanceProcessorTest {
 
         assertThat(result.isWinner()).isFalse();
         assertThat(result.win()).isNull();
-        verify(pointRewardPort, never()).grant(any(PointGrantCommand.class));
         verify(eventWinCommandPort, never()).save(any(EventWinEntity.class));
     }
 
     @Test
-    void process_shouldGrantPointAndSaveWin_whenRewardExists() {
+    void process_shouldSaveWin_whenRewardExists() {
         EventEntryEntity savedEntry = EventEntryEntity.create(
                 applicant.getId(),
                 applicant.getEventId(),
@@ -115,7 +103,6 @@ class PointAttendanceProcessorTest {
         );
 
         when(eventEntryCommandPort.save(any(EventEntryEntity.class))).thenReturn(savedEntry);
-        when(pointRewardPort.grant(any(PointGrantCommand.class))).thenReturn(new PointGrantResult("external-1"));
         when(eventWinCommandPort.save(any(EventWinEntity.class))).thenReturn(savedWin);
 
         AttendEventResult result = pointAttendanceProcessor.process(
@@ -127,11 +114,7 @@ class PointAttendanceProcessorTest {
                 28
         );
 
-        verify(pointRewardPort).grant(pointGrantCommandCaptor.capture());
-        PointGrantCommand command = pointGrantCommandCaptor.getValue();
-
-        assertThat(command.idempotencyKey()).isEqualTo("ATTENDANCE:1:11:999");
-        assertThat(command.pointAmount()).isEqualTo(30);
+        verify(eventWinCommandPort).save(any(EventWinEntity.class));
         assertThat(result.isWinner()).isTrue();
         assertThat(result.win()).isNotNull();
         assertThat(result.win().rewardType()).isEqualTo(RewardType.POINT);

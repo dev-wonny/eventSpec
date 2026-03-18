@@ -1,12 +1,10 @@
 package com.event.domain.service;
 
-import com.event.domain.entity.EventApplicantEntity;
 import com.event.domain.entity.EventEntity;
 import com.event.domain.entity.EventRoundEntity;
 import com.event.domain.entity.EventRoundPrizeEntity;
 import com.event.domain.entity.PrizeEntity;
 import com.event.domain.exception.BusinessException;
-import com.event.domain.exception.code.EntryCode;
 import com.event.domain.exception.code.EventCode;
 import com.event.domain.exception.code.PrizeCode;
 import com.event.domain.model.EventType;
@@ -21,8 +19,6 @@ public class AttendanceDomainService {
     public void validateAttendable(
             EventEntity event,
             EventRoundEntity round,
-            EventApplicantEntity applicant,
-            boolean alreadyApplied,
             Instant now
     ) {
         if (event.getEventType() != EventType.ATTENDANCE) {
@@ -43,18 +39,6 @@ public class AttendanceDomainService {
 
         if (!round.getEventId().equals(event.getId())) {
             throw BusinessException.from(EventCode.ROUND_EVENT_MISMATCH);
-        }
-
-        if (!applicant.getEventId().equals(event.getId())) {
-            throw BusinessException.from(EventCode.ROUND_EVENT_MISMATCH);
-        }
-
-        if (applicant.getRoundId() == null) {
-            throw BusinessException.from(EntryCode.ENTRY_NOT_ALLOWED);
-        }
-
-        if (alreadyApplied) {
-            throw BusinessException.from(EntryCode.ENTRY_ALREADY_APPLIED);
         }
     }
 

@@ -15,7 +15,9 @@
 
 모든 응답은 아래 공통 형태를 따른다.
 
-- 응답 body의 `code`는 `CommonCode` 기준으로 반환한다.
+- 성공 응답의 `code`는 `SUCCESS`를 사용한다.
+- 실패 응답의 `code`는 각 오류의 실제 code를 사용한다.
+- Business 예외는 domain code를 그대로 반환한다.
 
 ```json
 {
@@ -92,10 +94,10 @@ public BaseResponse<EventEntryResponse> enterEvent(
 
 ### 동작 규칙
 
-- `event_applicant`는 eligibility 테이블이 아니라 회차별 applicant 기준 테이블이다.
+- `event_applicant`는 사전 참여 가능 대상자 테이블이 아니라 회차별 applicant 기준 테이블이다.
 - `event_applicant`는 `(event_id, round_id, member_id)` unique로 동작한다.
-- 현재 프로젝트는 `event_applicant` 관리 API를 제공하지 않으므로 대상자 데이터는 SQL 또는 별도 admin 프로젝트에서 관리한다.
-- 출석 요청 시 서버는 `eventId + roundId + memberId` 기준 `event_applicant`를 생성하거나 기존 applicant를 확인한다.
+- `event_applicant`는 별도 관리 API 없이 출석 요청 시 `eventId + roundId + memberId` 기준으로 생성한다.
+- 회원별 사전 참여 가능 대상 체크는 하지 않고, applicant insert와 unique 충돌로 중복 출석을 제어한다.
 - FK는 두지 않으므로 서버는 `round.event_id == eventId`, `event_applicant.event_id == eventId`도 Service에서 검증해야 한다.
 - `event_round` 조회는 `roundId` 단독이 아니라 `roundId + eventId`로 함께 조회하는 방식을 권장한다.
 - `event_entry`는 실제 응모권/참여 이력 테이블이다.
@@ -104,9 +106,10 @@ public BaseResponse<EventEntryResponse> enterEvent(
 - 출석 중복 체크의 비즈니스 기준은 `event_applicant`의 `eventId + roundId + memberId`다.
 - 출석체크형 이벤트에서는 `roundId = 해당 날짜 회차`다.
 - 출석체크형 이벤트는 회차당 보상 매핑이 최대 1개다.
-- 회차에 보상 매핑이 있으면 `event_entry` 저장 후 외부 point API를 호출하고, 성공 시 `win`을 포함해 응답한다.
+- 회차에 보상 매핑이 있으면 `event_entry`, `event_win`까지 먼저 저장하고 로컬 트랜잭션 커밋 후 외부 point API를 호출한다.
 - 회차에 보상 매핑이 없으면 외부 point API를 호출하지 않고 `win = null`로 응답한다.
-- 출석체크형 이벤트는 출석 + 응모 + 선택적으로 point 지급 결과를 한 번에 응답한다.
+- 출석체크형 이벤트는 출석 + 응모 + 로컬 당첨 결과를 한 번에 응답한다.
+- 보상 매핑이 있는 회차에서 외부 point API가 실패하거나 무응답이어도, 로컬 커밋이 완료되었다면 응답은 성공으로 유지한다.
 - 출석 이벤트는 즉시 보상이면 `event_entry.is_winner = true`, 무보상 출석이면 `false`로 응답한다.
 - 즉시 당첨 여부는 항상 `isWinner`에 포함한다.
 - 즉시 당첨이 아니면 `isWinner: null` 또는 `false`가 될 수 있으며, 이는 이벤트 유형에 따라 달라진다.
@@ -189,27 +192,24 @@ public BaseResponse<EventEntryResponse> enterEvent(
   - `message`: `잘못된 요청입니다.`
   - `data` 예시: `{ "X-Member-Id": "X-Member-Id 헤더는 필수입니다." }`
 - 이벤트 없음
+  - `code`: `EVENT_NOT_FOUND`
 - 회차 없음
+  - `code`: `EVENT_ROUND_NOT_FOUND`
 - 이벤트-회차 불일치
-- 참여 가능 대상 아님
+  - `code`: `ROUND_EVENT_MISMATCH`
+- 운영 중단/급정지 이벤트
+  - `code`: `EVENT_NOT_ACTIVE`
+  - `message`: `현재 참여가 잠시 중단되었어요.`
+- 시작 전 이벤트
+  - `code`: `EVENT_NOT_STARTED`
+  - `message`: `이벤트 오픈 전이에요. 조금만 기다려 주세요.`
+- 참여 마감/종료 이벤트
+  - `code`: `EVENT_EXPIRED`
+  - `message`: `이 이벤트는 참여가 마감되었어요.`
 - 이미 출석함
-  - 프론트 메시지: `이미 출석했습니다`
-- 보상 매핑이 있는 회차에서 외부 point API 실패
-- 보상 매핑이 있는 회차에서 외부 point API 무응답
-  - point API timeout 기준: `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`
-  - `code`: `INTERNAL_ERROR`
-  - `message`: `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`
-
-#### 외부 point API 타임아웃 응답 예시
-
-```json
-{
-  "code": "INTERNAL_ERROR",
-  "message": "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
-  "timestamp": "2026-03-17T12:00:00Z",
-  "data": null
-}
-```
+  - `code`: `ENTRY_ALREADY_APPLIED`
+  - `message`: `이미 출석했습니다.`
+- 보상 매핑이 있는 회차에서 외부 point API 실패/무응답은 로컬 응답 오류가 아니라 운영 보정 대상이다.
 
 ## ATT-API-002 이벤트 상세 및 참여 상태 조회
 

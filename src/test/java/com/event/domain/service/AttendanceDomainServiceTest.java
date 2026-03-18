@@ -1,12 +1,11 @@
 package com.event.domain.service;
 
-import com.event.domain.entity.EventApplicantEntity;
 import com.event.domain.entity.EventEntity;
 import com.event.domain.entity.EventRoundEntity;
 import com.event.domain.entity.EventRoundPrizeEntity;
 import com.event.domain.entity.PrizeEntity;
 import com.event.domain.exception.BusinessException;
-import com.event.domain.exception.code.EntryCode;
+import com.event.domain.exception.code.EventCode;
 import com.event.domain.exception.code.PrizeCode;
 import com.event.domain.model.EventType;
 import com.event.domain.model.RewardType;
@@ -53,24 +52,15 @@ class AttendanceDomainServiceTest {
                 .isConfirmed(false)
                 .build();
 
-        EventApplicantEntity applicant = EventApplicantEntity.builder()
-                .id(100L)
-                .eventId(1L)
-                .roundId(10L)
-                .memberId(999L)
-                .build();
-
         assertThatCode(() -> attendanceDomainService.validateAttendable(
                 event,
                 round,
-                applicant,
-                false,
                 Instant.now()
         )).doesNotThrowAnyException();
     }
 
     @Test
-    void validateAttendable_shouldThrow_whenAlreadyApplied() {
+    void validateAttendable_shouldThrow_whenRoundDoesNotBelongToEvent() {
         EventEntity event = EventEntity.builder()
                 .id(1L)
                 .eventName("attendance")
@@ -90,28 +80,148 @@ class AttendanceDomainServiceTest {
 
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(10L)
-                .eventId(1L)
+                .eventId(2L)
                 .roundNo(1)
                 .isConfirmed(false)
-                .build();
-
-        EventApplicantEntity applicant = EventApplicantEntity.builder()
-                .id(100L)
-                .eventId(1L)
-                .roundId(10L)
-                .memberId(999L)
                 .build();
 
         assertThatThrownBy(() -> attendanceDomainService.validateAttendable(
                 event,
                 round,
-                applicant,
-                true,
                 Instant.now()
         ))
                 .isInstanceOf(BusinessException.class)
                 .extracting(ex -> ((BusinessException) ex).getResponseCode())
-                .isEqualTo(EntryCode.ENTRY_ALREADY_APPLIED);
+                .isEqualTo(EventCode.ROUND_EVENT_MISMATCH);
+    }
+
+    @Test
+    void validateAttendable_shouldThrowFriendlyMessage_whenEventIsInactive() {
+        EventEntity event = EventEntity.builder()
+                .id(1L)
+                .eventName("attendance")
+                .eventType(EventType.ATTENDANCE)
+                .startAt(Instant.now().minusSeconds(3600))
+                .endAt(Instant.now().plusSeconds(3600))
+                .supplierId(1L)
+                .priority(0)
+                .isActive(false)
+                .isVisible(true)
+                .isAutoEntry(false)
+                .isSnsLinked(false)
+                .isWinnerAnnounced(false)
+                .isDuplicateWinner(false)
+                .isMultipleEntry(false)
+                .build();
+
+        EventRoundEntity round = EventRoundEntity.builder()
+                .id(10L)
+                .eventId(1L)
+                .roundNo(1)
+                .isConfirmed(false)
+                .build();
+
+        assertThatThrownBy(() -> attendanceDomainService.validateAttendable(
+                event,
+                round,
+                Instant.now()
+        ))
+                .isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getResponseCode())
+                .isEqualTo(EventCode.EVENT_NOT_ACTIVE);
+
+        assertThatThrownBy(() -> attendanceDomainService.validateAttendable(
+                event,
+                round,
+                Instant.now()
+        ))
+                .hasMessage("현재 참여가 잠시 중단되었어요.");
+    }
+
+    @Test
+    void validateAttendable_shouldThrowFriendlyMessage_whenEventIsNotStarted() {
+        EventEntity event = EventEntity.builder()
+                .id(1L)
+                .eventName("attendance")
+                .eventType(EventType.ATTENDANCE)
+                .startAt(Instant.now().plusSeconds(3600))
+                .endAt(Instant.now().plusSeconds(7200))
+                .supplierId(1L)
+                .priority(0)
+                .isActive(true)
+                .isVisible(true)
+                .isAutoEntry(false)
+                .isSnsLinked(false)
+                .isWinnerAnnounced(false)
+                .isDuplicateWinner(false)
+                .isMultipleEntry(false)
+                .build();
+
+        EventRoundEntity round = EventRoundEntity.builder()
+                .id(10L)
+                .eventId(1L)
+                .roundNo(1)
+                .isConfirmed(false)
+                .build();
+
+        assertThatThrownBy(() -> attendanceDomainService.validateAttendable(
+                event,
+                round,
+                Instant.now()
+        ))
+                .isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getResponseCode())
+                .isEqualTo(EventCode.EVENT_NOT_STARTED);
+
+        assertThatThrownBy(() -> attendanceDomainService.validateAttendable(
+                event,
+                round,
+                Instant.now()
+        ))
+                .hasMessage("이벤트 오픈 전이에요. 조금만 기다려 주세요.");
+    }
+
+    @Test
+    void validateAttendable_shouldThrowFriendlyMessage_whenEventIsExpired() {
+        EventEntity event = EventEntity.builder()
+                .id(1L)
+                .eventName("attendance")
+                .eventType(EventType.ATTENDANCE)
+                .startAt(Instant.now().minusSeconds(7200))
+                .endAt(Instant.now().minusSeconds(3600))
+                .supplierId(1L)
+                .priority(0)
+                .isActive(true)
+                .isVisible(true)
+                .isAutoEntry(false)
+                .isSnsLinked(false)
+                .isWinnerAnnounced(false)
+                .isDuplicateWinner(false)
+                .isMultipleEntry(false)
+                .build();
+
+        EventRoundEntity round = EventRoundEntity.builder()
+                .id(10L)
+                .eventId(1L)
+                .roundNo(1)
+                .isConfirmed(false)
+                .build();
+
+        assertThatThrownBy(() -> attendanceDomainService.validateAttendable(
+                event,
+                round,
+                Instant.now()
+        ))
+                .isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getResponseCode())
+                .isEqualTo(EventCode.EVENT_EXPIRED);
+
+        assertThatThrownBy(() -> attendanceDomainService.validateAttendable(
+                event,
+                round,
+                Instant.now()
+        ))
+                .hasMessage("이 이벤트는 참여가 마감되었어요.");
     }
 
     @Test
@@ -174,4 +284,3 @@ class AttendanceDomainServiceTest {
                 .isEqualTo(PrizeCode.PRIZE_INVALID_TYPE);
     }
 }
-

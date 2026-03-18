@@ -41,5 +41,19 @@ public class EventApplicantEntity extends BaseEntity {
         this.roundId = roundId;
         this.memberId = memberId;
     }
-}
 
+    public static EventApplicantEntity create(
+            Long eventId,
+            Long roundId,
+            Long memberId,
+            String actor
+    ) {
+        EventApplicantEntity entity = EventApplicantEntity.builder()
+                .eventId(eventId)
+                .roundId(roundId)
+                .memberId(memberId)
+                .build();
+        entity.initializeAudit(actor);
+        return entity;
+    }
+}

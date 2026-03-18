@@ -1,73 +1,89 @@
 # Exception Handling
 
-이 문서는 출석체크 기능의 try-catch 경계, 외부 API 예외 처리, 트랜잭션/rollback 기준을 정의한다. 현재 범위는 동기식 point 지급 API 연동을 전제로 한다.
+이 문서는 출석체크 기능의 try-catch 경계와 외부 point API 실패 처리 기준을 정의한다. 현재 기준은 로컬 DB 트랜잭션과 외부 point API 호출을 분리하는 구조다.
 
 ## 목적
 
-- 어디서 예외를 잡고 어디서 다시 던질지 정한다.
-- 어떤 실패가 `event_applicant`, `event_entry`, `event_win` rollback으로 이어지는지 고정한다.
-- 프론트에 어떤 종류의 실패를 노출할지 일관되게 관리한다.
-- 향후 AWS 기반 비동기 구조로 전환할 때 변경 포인트를 분리한다.
-- FK 없이 운영하는 대신 Service 검증과 최소 unique가 어떻게 보완하는지도 함께 정리한다.
+- 어떤 예외가 로컬 트랜잭션 rollback 대상인지 고정한다.
+- 외부 point API 실패가 사용자 응답이 아니라 운영 대응 이슈가 되도록 기준을 맞춘다.
+- 동기 호출 구조를 유지하되 transaction 경계는 명확히 분리한다.
 
 ## 현재 처리 원칙
 
-1. 출석 회차에 보상 매핑이 있으면 출석 성공은 외부 point API 성공까지 포함한다.
-2. 보상 매핑이 있는 출석은 `event_applicant` 저장 후 `event_entry`를 저장하고, 외부 point API 성공 시 `event_win`을 저장한다.
-3. 출석 회차에 보상 매핑이 없으면 외부 point API를 호출하지 않는다.
-4. 외부 point API 실패 또는 무응답이면 출석은 실패다.
-5. 출석 실패 시 `event_applicant`, `event_entry`, `event_win`은 남지 않아야 한다.
-6. 예외를 catch한 뒤 삼키지 말고 도메인 예외로 변환해서 다시 던진다.
-7. 현재는 동기식 구조이므로 프론트는 즉시 성공 또는 실패를 받는다.
+1. 출석 성공 기준은 `event_applicant`, `event_entry`, `event_win` 로컬 커밋 성공이다.
+2. 보상 매핑이 있으면 `event_win`까지 저장한 뒤 로컬 트랜잭션을 종료한다.
+3. 외부 point API는 로컬 트랜잭션 커밋 후 호출한다.
+4. 외부 point API 실패나 타임아웃은 로컬 rollback 사유가 아니다.
+5. 외부 point API 실패는 `ERROR` 로그와 운영 알림으로 처리한다.
+6. 중복 출석, 이벤트 상태 오류, 회차 정합성 오류는 로컬 저장 전에 비즈니스 예외로 종료한다.
 
 ## 예외 분류
 
-| 분류 | 예시 | 외부 API 호출 여부 | rollback 대상 | 프론트 응답 방향 |
-| --- | --- | --- | --- | --- |
-| Validation 예외 | DTO 제약 위반, `X-Member-Id` 누락, path/body 타입 오류 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | `INVALID_REQUEST` |
-| Business 예외 | 이벤트 없음, 회차 없음, 이벤트-회차 불일치, 같은 `event_id + round_id + member_id` 중복 응모, 출석 불가 시간 | 호출 안 함 | 현재 트랜잭션 내 로컬 변경 | 비즈니스 오류 |
-| External 실패 | point API 실패 응답 | 보상 매핑이 있을 때만 호출 | `event_applicant`, `event_entry`, `event_win` | 출석 실패 |
-| External timeout | point API 무응답, 타임아웃 | 보상 매핑이 있을 때만 호출 | `event_applicant`, `event_entry`, `event_win` | `INTERNAL_ERROR` |
-| Persistence 예외 | 최소 unique 충돌, DB 저장 실패 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 또는 충돌 |
-| Unexpected 예외 | NPE, 매핑 오류, 기타 런타임 예외 | 상황에 따라 다름 | 현재 트랜잭션 내 로컬 변경 | 서버 오류 |
+| 분류 | 예시 | 로컬 rollback 대상 | 프론트 응답 방향 |
+| --- | --- | --- | --- |
+| Validation 예외 | `X-Member-Id` 누락, 타입 오류 | 없음 | `INVALID_REQUEST` |
+| Business 예외 | 이벤트 없음, 회차 없음, 이벤트-회차 불일치, 중복 출석 | 현재 트랜잭션 내 로컬 변경 | 해당 domain code (`EVENT_NOT_FOUND`, `ROUND_EVENT_MISMATCH`, `ENTRY_ALREADY_APPLIED` 등) |
+| Persistence 예외 | applicant insert unique 충돌, DB 저장 실패 | 현재 트랜잭션 내 로컬 변경 | `CONFLICT` 또는 `INTERNAL_ERROR` |
+| External 실패 | point API 실패 응답 | 없음 | 출석 성공 유지, 운영 대응 |
+| External timeout | point API 무응답, 타임아웃 | 없음 | 출석 성공 유지, 운영 대응 |
+| Unexpected 예외 | point 호출 단계의 예상치 못한 런타임 예외 | 없음 | 출석 성공 유지, 운영 대응 |
 
 ## try-catch 경계
 
 ### Controller
 
-- Controller에서는 넓은 `try-catch`를 두지 않는다.
-- 서비스가 던진 도메인 예외를 전역 예외 처리기에서 HTTP 응답으로 변환한다.
-- `X-Member-Id`는 interceptor가 아니라 controller `@RequestHeader`로 바인딩한다.
-- `POST /entries`는 `required = true`, `GET /events/{eventId}`는 `required = false`로 처리한다.
-- 헤더 누락은 `MissingRequestHeaderException`으로 전역 예외 처리기에서 `INVALID_REQUEST`로 변환한다.
+- Controller는 넓은 `try-catch`를 두지 않는다.
+- 비즈니스 예외와 validation 예외는 전역 예외 처리기에서 HTTP 응답으로 변환한다.
 
-### Service
+### Transaction Service
 
-- 출석 처리의 핵심 `try-catch` 경계는 Service에 둔다.
-- 외부 point API 관련 예외는 Service에서 catch 후 출석 도메인 예외로 변환한다.
-- DB 예외는 필요한 경우 의미 있는 도메인 예외로 감싼 뒤 다시 던진다.
-- rollback이 필요한 예외는 반드시 Runtime 예외 계열로 전파한다.
+- 로컬 저장 단계는 `@Transactional` 경계 안에서 처리한다.
+- 이벤트/회차 검증, applicant insert, reward 조회, `event_entry`, `event_win` 저장을 담당한다.
+- 이 단계에서 발생한 예외만 rollback 대상으로 본다.
+
+### Orchestrator Service
+
+- 로컬 트랜잭션이 끝난 뒤 외부 point API를 호출한다.
+- point API 예외는 catch 후 로그와 운영 알림으로 전환한다.
+- 외부 API 예외를 다시 던져 사용자 응답을 실패로 바꾸지 않는다.
 
 ### Repository / Client
 
-- Repository는 원칙적으로 예외를 잡지 않는다.
-- 외부 API Client는 HTTP/네트워크 예외를 기술 예외로 올리고, Service가 이를 도메인 의미로 변환한다.
+- Repository는 예외를 잡지 않는다.
+- point API client는 HTTP/네트워크 예외를 기술 예외로 올린다.
 
 ## 권장 흐름
 
 ```text
 1. 요청 검증
-2. 이벤트/회차 정합성 확인
-3. applicant 생성 가능 여부 조회 및 검증
-4. applicant 중복 출석 확인
-5. 출석 회차의 보상 매핑 확인
-6. event_applicant 저장
+2. 이벤트/회차 조회
+3. round.event_id == event.id 검증
+4. event_applicant insert 시도
+5. unique 충돌이면 이미 출석으로 종료
+6. reward mapping 조회
 7. event_entry 저장
-8. 보상 매핑이 있으면 외부 point API 호출
-9. 성공 시 event_win 저장 후 트랜잭션 커밋
+8. reward가 있으면 event_win 저장
+9. 로컬 트랜잭션 커밋
+10. point API 호출
+11. 실패 시 로그 + 운영 알림
+12. 성공 응답 반환
 ```
 
-외부 API 실패 또는 무응답이면 6~9 단계는 성공으로 확정되면 안 된다. 보상 매핑이 없으면 7과 8은 건너뛴다.
+## rollback 기준
+
+### 반드시 rollback
+
+- `event_applicant` 저장 실패
+- `event_entry` 저장 실패
+- `event_win` 저장 실패
+- 이벤트/회차 정합성 오류
+- 중복 출석 판정 전후의 로컬 Runtime 예외
+
+### rollback 하지 않음
+
+- 외부 point API 실패 응답
+- 외부 point API 타임아웃 또는 무응답
+- point API 호출 단계의 예기치 않은 Runtime 예외
 
 ## 외부 point API 타임아웃 정책
 
@@ -75,137 +91,33 @@
 - `read timeout = 2초`
 - `총 대기 시간 = 최대 3초`
 - 타임아웃은 외부 시스템 장애로 간주한다.
-- 타임아웃이 발생하면 출석 참여 자체를 실패 처리한다.
-- 이 경우 `event_applicant`, `event_entry`, `event_win`은 모두 롤백되어야 한다.
-- 사용자 응답은 `INTERNAL_ERROR`를 사용한다.
-- 사용자 메시지는 `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`를 사용한다.
-- 사용자가 재시도하면 같은 `idempotency_key = event_id + round_id + member_id`로 외부 point API를 재호출한다.
-
-이 단계에서 가장 중요한 검증 중 하나는 FK가 없기 때문에 `round.event_id == event.id`를 직접 확인하는 것이다.
-
-```sql
-SELECT *
-FROM event_round
-WHERE id = :roundId
-  AND event_id = :eventId;
-```
-
-```java
-if (!round.getEventId().equals(event.getId())) {
-    throw new IllegalArgumentException("ROUND_EVENT_MISMATCH");
-}
-```
-
-## 권장 try-catch 구조
-
-```java
-@Transactional
-public AttendanceResult attend(AttendanceCommand command) {
-    validate(command);
-
-    Event event = loadEvent(command);
-    EventRound round = loadRound(command.roundId());
-    ensureRoundMatchesEvent(round, event.getId());
-    EventApplicant applicant = createApplicant(command, event, round);
-    Optional<EventRoundPrize> prize = loadAttendancePrize(round);
-
-    try {
-        EventEntry entry = eventEntryRepository.save(...);
-
-        if (prize.isEmpty()) {
-            return AttendanceResult.success(entry, null, null);
-        }
-
-        PointGrantResult pointResult = pointApiClient.grantPoint(...);
-        EventWin win = eventWinRepository.save(...);
-
-        return AttendanceResult.success(entry, win, pointResult);
-    } catch (PointApiTimeoutException e) {
-        throw new AttendanceUnavailableException(e);
-    } catch (PointApiFailException e) {
-        throw new AttendanceRewardFailedException(e);
-    } catch (DataIntegrityViolationException e) {
-        throw new AttendanceConflictException(e);
-    } catch (Exception e) {
-        throw new AttendanceUnexpectedException(e);
-    }
-}
-```
-
-위 흐름의 기준은 `event_applicant`, `event_entry` 저장 후 외부 point API 호출, 성공 시 `event_win` 저장이다. 외부 API 실패나 무응답이 발생하면 트랜잭션 전체가 롤백되어 `event_applicant`, `event_entry`도 남지 않아야 한다.
-
-## rollback 기준
-
-### 반드시 rollback
-
-- 외부 point API 실패 응답
-- 외부 point API 타임아웃 또는 무응답
-- `event_applicant` 저장 실패
-- `event_entry` 저장 실패
-- `event_win` 저장 실패
-- 중복 출석 판정 이후 발견된 정합성 오류
-- 기타 Runtime 예외
-
-### 현재 보장 대상
-
-- `event_applicant`
-- `event_entry`
-- `event_win` 생성이 있는 경우의 `event_win`
-
-### 추가 확인 필요
-
-- 외부 API 성공 후 DB 커밋 실패 시 local recovery 방식
+- 타임아웃이 발생해도 로컬 출석 데이터는 유지한다.
+- 타임아웃은 운영 알림과 재처리 대상으로 남긴다.
+- 재호출 시 `idempotency_key = event_id + round_id + member_id`를 그대로 사용한다.
 
 ## 예외별 응답 가이드
 
 | 예외 | 내부 의미 | 사용자 응답 방향 |
 | --- | --- | --- |
 | Validation 예외 | 잘못된 요청 | `INVALID_REQUEST` |
-| `AttendanceDuplicateException` | 같은 `event_id + round_id + member_id` 기준 이미 출석 완료 | 이미 출석했습니다 |
-| `AttendanceUnavailableException` | 외부 API 무응답 또는 타임아웃 | `INTERNAL_ERROR`, `일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.` |
-| `AttendanceRewardFailedException` | 외부 API 실패 응답 | 출석 처리 실패 |
-| `AttendanceConflictException` | 동시성/DB 충돌 | 잠시 후 다시 시도 |
-| `AttendanceUnexpectedException` | 예상치 못한 오류 | 일시적 오류 |
+| `ENTRY_ALREADY_APPLIED` | 같은 `event_id + round_id + member_id` 기준 이미 출석 완료 | `code = ENTRY_ALREADY_APPLIED`, `message = 이미 출석했습니다.` |
+| 이벤트/회차 관련 예외 | 출석 불가 상태 | `EVENT_NOT_FOUND`, `EVENT_ROUND_NOT_FOUND`, `ROUND_EVENT_MISMATCH`, `EVENT_NOT_ACTIVE`, `EVENT_NOT_STARTED`, `EVENT_EXPIRED` |
+| point API 실패/타임아웃 | 외부 지급 후처리 실패 | 출석 성공 유지, 운영 대응 |
 
-구체적인 HTTP status, 에러 코드, 메시지는 `api-spec.md`에서 확정한다.
+- Business 예외는 `commonCode`가 아니라 domain code 자체를 응답 body의 `code`에 사용한다.
+- 고객 메시지는 안내형 표현을 사용한다. `EVENT_NOT_ACTIVE`는 `현재 참여가 잠시 중단되었어요.`, `EVENT_NOT_STARTED`는 `이벤트 오픈 전이에요. 조금만 기다려 주세요.`, `EVENT_EXPIRED`는 `이 이벤트는 참여가 마감되었어요.`를 반환한다.
 
 ## 로깅 원칙
 
-- 요청 식별값: `eventId`, `roundId`, `memberId`
-- 외부 API 결과: 응답 코드, 타임아웃 여부, 추적 가능한 요청 ID
-- rollback 원인: 예외 타입, 실패 단계
-- 로그는 구조화된 형태로 남기고 ELK에서 조회 가능해야 한다.
-- `requestId`로 API 요청부터 point API 호출 실패까지 한 흐름으로 추적 가능해야 한다.
-- point API 타임아웃 로그에는 `commonCode=INTERNAL_ERROR`, `domainCode=POINT_API_TIMEOUT`, `eventId`, `roundId`, `memberId`를 함께 남긴다.
-- 민감한 개인정보나 보상 원문 payload 전체는 로그에 남기지 않는다.
+- 필수 식별값: `eventId`, `roundId`, `memberId`
+- point API 실패 로그에는 `idempotency_key`를 반드시 포함한다.
+- timeout 로그에는 `commonCode=INTERNAL_ERROR`, `domainCode=POINT_API_TIMEOUT`를 함께 남긴다.
+- point API 실패 로그에는 `operationsAlertRequired=true`를 포함한다.
+- 민감한 개인정보나 전체 payload는 로그에 남기지 않는다.
 
-## 현재 구조의 숨은 리스크
+## 운영 대응 메모
 
-### 외부 API 성공 후 DB 실패
-
-- 외부 point API는 이미 성공했는데 `event_entry` 또는 `event_win` 커밋이 실패할 수 있다.
-- 이 경우 DB rollback만으로는 외부 지급을 되돌릴 수 없다.
-- 현재 정책은 point 보정 차감을 하지 않고, 같은 `idempotency_key` 재호출을 통해 local DB를 복구하는 것이다.
-- 현재 출석체크의 `idempotency_key`는 `event_id + round_id + member_id`를 사용한다.
-- 사용자가 재시도하면 같은 `idempotency_key`로 point API를 다시 호출한다.
-- point 시스템은 이미 처리된 요청을 중복 지급 없이 흡수해야 한다.
-- event 서버는 그 재시도 시점에 local `event_entry`, `event_win`을 다시 저장해 정합성을 복구한다.
-- 재시도가 들어오지 않는 경우에는 운영 수동 복구 또는 별도 재처리 작업으로 local 이력을 보완할 수 있다.
-
-### 외부 API 재시도
-
-- 타임아웃 후 실제 외부 시스템에서는 이미 point가 적립되었을 가능성이 있다.
-- 현재 출석체크는 `idempotency_key = event_id + round_id + member_id`를 사용한다.
-- 재시도 시 point 시스템의 `UNIQUE(idempotency_key)`가 중복 지급을 막아야 한다.
-
-## 동시성 제어 연결
-
-- 출석 중복은 Application 조회와 `uq_event_applicant_event_round_member` unique 두 계층에서 막는다.
-- point 중복 지급은 외부 point 시스템의 `idempotency_key`로 막는다.
-- 자세한 흐름은 `concurrency-control.md`를 기준으로 구현한다.
-
-## 향후 비동기 전환 메모
-
-- AWS 기반 메시지 큐로 전환되면 "출석 성공"과 "point 지급 성공"의 시점이 분리될 수 있다.
-- 그 시점에는 현재 문서의 동기식 rollback 규칙을 다시 작성해야 한다.
-- 비동기 전환 후에는 `event_win` 생성 시점, 실패 재처리, 사용자 응답 정책이 함께 바뀐다.
+- point API 실패 후 `event_win`은 이미 저장된 상태일 수 있다.
+- 따라서 `event_win`은 외부 지급 성공 이력이라기보다 로컬 보상 확정 이력으로 해석해야 한다.
+- 운영 재처리나 수동 재호출 시에는 같은 `idempotency_key`를 사용해야 한다.
+- 재처리 설계가 필요해지면 별도 queue 또는 배치 복구 정책으로 확장한다.

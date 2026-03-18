@@ -96,8 +96,8 @@ curl -s -X POST -H 'X-Member-Id: 1001' \
 
 - FK는 두지 않고 Service 검증으로 정합성을 보완한다.
 - 최소 unique만 유지한다.
-- `event_applicant`는 회차별 applicant 기준, `event_entry`는 응모권/참여 이력, `event_win`은 실제 지급 이력이다.
-- 출석 이벤트에서는 회차마다 `event_applicant`와 `event_entry`가 각각 생성되고, `event_entry.is_winner = true`로 저장한다.
+- `event_applicant`는 출석 요청 시 생성되는 회차별 applicant 기준, `event_entry`는 응모권/참여 이력, `event_win`은 로컬 당첨/보상 확정 이력이다.
+- 출석 이벤트에서는 회차마다 `event_applicant`, `event_entry`, `event_win`이 로컬 트랜잭션에서 저장되고, 외부 point API는 커밋 후 호출한다.
 - 출석 중복 기준은 `event_id + round_id + member_id`다.
 - point API timeout 기준은 connect 1초, read 2초다.
 - point API는 `idempotency_key = event_id + round_id + member_id`를 사용한다.

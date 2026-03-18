@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 @AllArgsConstructor
 public enum EntryCode implements ResponseCode {
 
-    ENTRY_NOT_ALLOWED("ENTRY_NOT_ALLOWED", "참여 가능 대상이 아닙니다.", CommonCode.FORBIDDEN),
     ENTRY_ALREADY_APPLIED("ENTRY_ALREADY_APPLIED", "이미 출석했습니다.", CommonCode.CONFLICT);
 
     private final String code;
@@ -21,4 +20,3 @@ public enum EntryCode implements ResponseCode {
         return commonCode.getStatus();
     }
 }
-

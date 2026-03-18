@@ -33,7 +33,7 @@ public record BaseResponse<T>(
 
     public static BaseResponse<Void> error(ResponseCode code) {
         return BaseResponse.<Void>builder()
-                .code(code.getCommonCode().getCode())
+                .code(code.getCode())
                 .message(code.getMessage())
                 .timestamp(Instant.now())
                 .data(null)
