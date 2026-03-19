@@ -2,15 +2,20 @@ package com.event.domain.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -22,42 +27,48 @@ import org.hibernate.annotations.SQLRestriction;
 @SQLRestriction("is_deleted = FALSE")
 public class EventRoundPrizeProbabilityEntity extends BaseEntity {
 
+    private static final Integer DEFAULT_WEIGHT = 1;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Comment("확률 규칙 ID")
     private Long id;
 
-    @Column(name = "round_id", nullable = false)
-    private Long roundId;
+    @Comment("회차")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "round_id", nullable = false)
+    private EventRoundEntity round;
 
+    @Comment("회차 보상 매핑 ID")
     @Column(name = "event_round_prize_id", nullable = false)
     private Long eventRoundPrizeId;
 
-    // 보상 당첨 확률이다. 백분율 또는 운영 정의값으로 해석한다.
+    @Comment("보상 당첨 확률")
     @Column(name = "probability", nullable = false, precision = 5, scale = 2)
     private BigDecimal probability;
 
-    // 동일 확률 내 추가 가중치가 필요할 때 사용하는 값이다.
+    @Comment("가중치")
     @Column(name = "weight", nullable = false)
     private Integer weight;
 
-    // 현재 확률 규칙이 활성 상태인지 여부다.
+    @Comment("확률 규칙 활성 여부")
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
     @Builder
     private EventRoundPrizeProbabilityEntity(
             Long id,
-            Long roundId,
+            EventRoundEntity round,
             Long eventRoundPrizeId,
             BigDecimal probability,
             Integer weight,
             Boolean isActive
     ) {
         this.id = id;
-        this.roundId = roundId;
+        this.round = round;
         this.eventRoundPrizeId = eventRoundPrizeId;
         this.probability = probability;
-        this.weight = weight != null ? weight : 1;
+        this.weight = Objects.nonNull(weight) ? weight : DEFAULT_WEIGHT;
         this.isActive = isActive;
     }
 }

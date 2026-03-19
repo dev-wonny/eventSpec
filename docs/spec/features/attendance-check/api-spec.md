@@ -15,25 +15,47 @@
 
 모든 응답은 아래 공통 형태를 따른다.
 
-- 성공 응답의 `code`는 `SUCCESS`를 사용한다.
+- 성공 응답도 `code`, `message`, `timestamp`, `data`를 모두 포함한다.
+- `code`, `message`, `timestamp`는 항상 존재하며 null 또는 생략을 허용하지 않는다.
+- `data`도 envelope 필드로 항상 포함하며, 값은 API 의미에 따라 객체, 배열, `null`이 될 수 있다.
+- 성공 응답의 `code`는 `SUCCESS`, `message`는 `성공`을 사용한다.
 - 실패 응답의 `code`는 각 오류의 실제 code를 사용한다.
 - Business 예외는 domain code를 그대로 반환한다.
+- Collection 필드는 null 대신 빈 배열 `[]`를 사용한다.
+- 의미가 있는 선택 객체는 `null`로 표현할 수 있고, 조건부 하위 필드는 필요할 때만 포함한다.
 
 ```json
 {
-  "code": "STRING_CODE",
-  "message": "사용자 메시지",
+  "code": "SUCCESS",
+  "message": "성공",
   "timestamp": "2026-02-02T10:00:00Z",
   "data": {}
 }
 ```
+
+### JSON 표현 규칙 (v1)
+
+```text
+1. Collection -> 항상 []
+2. Object -> {} 또는 null (의미에 따라 구분)
+3. 선택 필드 -> null 또는 필드 제거
+4. null은 "존재하지 않음", {}는 "비어있음"
+5. BaseResponse envelope 필드(code, message, timestamp, data)는 항상 존재
+```
+
+추가 규칙:
+
+- `items: null` 같은 Collection null 표현은 금지한다.
+- 당첨이 없을 때 `win: {}` 같은 의미 없는 빈 객체는 금지한다.
+- 이 API에서는 `rounds`는 항상 배열이고, `win`은 값이 없으면 `null`이다.
+- `couponCode`, `pointAmount` 같은 조건부 하위 필드는 해당 보상 타입일 때만 포함한다.
 
 ### Header
 
 - `X-Member-Id: {memberId}`
 - 현재는 신뢰된 호출 주체가 호출한다는 전제로 `X-Member-Id`를 우선 사용한다.
 - JWT, Spring Security는 현재 범위에 포함하지 않는다.
-- `X-Member-Id`는 interceptor가 아니라 controller `@RequestHeader`로 처리한다.
+- `X-Member-Id`는 interceptor에서 파싱하고 argument resolver로 controller에 주입한다.
 
 ### memberId
 
@@ -86,7 +108,7 @@ Controller 권장 시그니처:
 public BaseResponse<EventEntryResponse> enterEvent(
         @PathVariable Long eventId,
         @PathVariable Long roundId,
-        @RequestHeader("X-Member-Id") Long memberId
+        @MemberId Long memberId
 ) {
     ...
 }
@@ -107,7 +129,7 @@ public BaseResponse<EventEntryResponse> enterEvent(
 - 출석 중복 체크의 비즈니스 기준은 `event_applicant`의 `roundId + memberId`다.
 - 출석체크형 이벤트에서는 `roundId = 해당 날짜 회차`다.
 - 출석체크형 이벤트는 회차당 보상 매핑이 최대 1개다.
-- 회차에 보상 매핑이 있으면 `event_entry`, `event_win`까지 먼저 저장하고 로컬 트랜잭션 커밋 후 외부 point API를 호출한다.
+- 회차에 보상 매핑이 있으면 `event_entry`, `event_win`까지 먼저 저장하고, `PointGrantCommand`를 발행한 뒤 commit 성공 시 `AFTER_COMMIT` listener가 외부 point API를 호출한다.
 - 회차에 보상 매핑이 없으면 외부 point API를 호출하지 않고 `win = null`로 응답한다.
 - 출석체크형 이벤트는 출석 + 응모 + 로컬 당첨 결과를 한 번에 응답한다.
 - 보상 매핑이 있는 회차에서 외부 point API가 실패하거나 무응답이어도, 로컬 커밋이 완료되었다면 응답은 성공으로 유지한다.
@@ -117,15 +139,16 @@ public BaseResponse<EventEntryResponse> enterEvent(
 
 ### 성공 응답
 
-- `code`: `SUCCESS`
-- `message`: 출석 이벤트는 `출석 체크가 완료되었습니다.`
+- 성공 envelope은 `code`, `message`, `timestamp`, `data`를 모두 포함한다.
+- `win`은 미당첨/무보상일 때 `null`이다.
+- `attendance`는 출석 응답에서 항상 객체로 내려간다.
 
 #### 출석체크형 이벤트 예시
 
 ```json
 {
   "code": "SUCCESS",
-  "message": "출석 체크가 완료되었습니다.",
+  "message": "성공",
   "timestamp": "2026-02-02T10:00:00Z",
   "data": {
     "entryId": 200,
@@ -151,7 +174,7 @@ public BaseResponse<EventEntryResponse> enterEvent(
 ```json
 {
   "code": "SUCCESS",
-  "message": "출석 체크가 완료되었습니다.",
+  "message": "성공",
   "timestamp": "2026-02-03T10:00:00Z",
   "data": {
     "entryId": 201,
@@ -175,7 +198,7 @@ public BaseResponse<EventEntryResponse> enterEvent(
 | `prizeName` | `String` | 경품명 |
 | `rewardType` | `String` | `POINT` / `COUPON` |
 | `pointAmount` | `Integer` | `POINT`일 때만 포함 |
-| `couponCode` | `String` | `COUPON`일 때만 선택 포함 |
+| `couponCode` | `String` | `COUPON`일 때만 포함 |
 
 ### `attendance` 객체
 
@@ -183,8 +206,12 @@ public BaseResponse<EventEntryResponse> enterEvent(
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `attendedDays` | `Integer` | 누적 출석 일수 |
-| `totalDays` | `Integer` | 이벤트 전체 일수 |
+| `attendedDays` | `Long` | 누적 출석 일수 |
+| `totalDays` | `Long` | 이벤트 전체 일수 |
+
+- `attendedDays`, `totalDays`는 둘 다 count 성격의 값이므로 `Long`을 사용한다.
+- `COUNT(*)`는 DB에서 보통 `BIGINT`로 처리되고, JPA count 메서드도 `long` 반환이 자연스럽다.
+- 현재 값이 작더라도 `int`로 줄이지 않고 `long`을 유지해 overflow 가능성을 피한다.
 
 ### 오류 방향
 
@@ -231,7 +258,7 @@ Controller 권장 시그니처:
 @GetMapping("/event/v1/events/{eventId}")
 public BaseResponse<EventDetailResponse> getEvent(
         @PathVariable Long eventId,
-        @RequestHeader(value = "X-Member-Id", required = false) Long memberId
+        @MemberId(required = false) Long memberId
 ) {
     ...
 }
@@ -251,15 +278,17 @@ public BaseResponse<EventDetailResponse> getEvent(
 
 ### 성공 응답
 
-- `code`: `SUCCESS`
-- `message`: `이벤트를 조회했습니다.`
+- 성공 envelope은 `code`, `message`, `timestamp`, `data`를 모두 포함한다.
+- `rounds`는 회차가 없어도 `[]`를 사용한다.
+- `rounds[].win`은 회차 보상이 없거나 당첨 정보가 없으면 `null`이다.
+- `attendanceSummary`는 `X-Member-Id`가 없으면 `null`이다.
 
 #### 출석 이벤트 예시
 
 ```json
 {
   "code": "SUCCESS",
-  "message": "이벤트를 조회했습니다.",
+  "message": "성공",
   "timestamp": "2026-02-09T10:00:00Z",
   "data": {
     "eventId": 1,
@@ -318,7 +347,7 @@ public BaseResponse<EventDetailResponse> getEvent(
 ```json
 {
   "code": "SUCCESS",
-  "message": "응모가 완료되었습니다.",
+  "message": "성공",
   "timestamp": "2026-03-09T08:00:00Z",
   "data": {
     "entryId": 200,
@@ -338,7 +367,7 @@ public BaseResponse<EventDetailResponse> getEvent(
 ```json
 {
   "code": "SUCCESS",
-  "message": "응모가 완료되었습니다.",
+  "message": "성공",
   "timestamp": "2026-03-09T08:00:00Z",
   "data": {
     "entryId": 201,
@@ -354,7 +383,7 @@ public BaseResponse<EventDetailResponse> getEvent(
 ```json
 {
   "code": "SUCCESS",
-  "message": "응모가 완료되었습니다.",
+  "message": "성공",
   "timestamp": "2026-03-09T08:00:00Z",
   "data": {
     "entryId": 200,
@@ -370,7 +399,7 @@ public BaseResponse<EventDetailResponse> getEvent(
 ```json
 {
   "code": "SUCCESS",
-  "message": "이벤트를 조회했습니다.",
+  "message": "성공",
   "timestamp": "2026-03-09T08:00:00Z",
   "data": {
     "eventId": 1,

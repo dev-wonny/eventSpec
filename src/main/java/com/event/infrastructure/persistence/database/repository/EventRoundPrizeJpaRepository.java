@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EventRoundPrizeJpaRepository extends JpaRepository<EventRoundPrizeEntity, Long> {
 
-    List<EventRoundPrizeEntity> findByRoundIdAndIsActiveTrueAndIsDeletedFalseOrderByPriorityAscIdAsc(Long roundId);
+    List<EventRoundPrizeEntity> findByRound_IdAndIsActiveTrueAndIsDeletedFalseOrderByPriorityAscIdAsc(Long roundId);
 }

@@ -2,14 +2,13 @@ package com.event.application.service;
 
 import com.event.application.dto.event.EventDetailDto;
 import com.event.application.dto.event.GetEventDetailQuery;
-import com.event.application.port.output.EventEntryQueryPort;
+import com.event.application.port.output.EventEntryRepositoryPort;
 import com.event.application.port.output.EventQueryPort;
 import com.event.application.port.output.EventRoundPrizeQueryPort;
 import com.event.application.port.output.EventRoundQueryPort;
 import com.event.application.port.output.EventWinQueryPort;
 import com.event.application.port.output.PrizeQueryPort;
 import com.event.domain.entity.EventEntity;
-import com.event.domain.entity.EventEntryEntity;
 import com.event.domain.entity.EventRoundEntity;
 import com.event.domain.entity.EventRoundPrizeEntity;
 import com.event.domain.entity.EventWinEntity;
@@ -22,7 +21,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +44,7 @@ class GetEventDetailServiceTest {
     private EventRoundQueryPort eventRoundQueryPort;
 
     @Mock
-    private EventEntryQueryPort eventEntryQueryPort;
+    private EventEntryRepositoryPort eventEntryRepositoryPort;
 
     @Mock
     private EventWinQueryPort eventWinQueryPort;
@@ -94,11 +95,10 @@ class GetEventDetailServiceTest {
 
     @Test
     void getEventDetail_shouldReturnStatusAndWin_whenMemberIdExists() {
-        EventEntryEntity entry = EventEntryEntity.create(1L, 1L, 101L, 999L, 301L, true, "999");
-        EventWinEntity win = EventWinEntity.create(201L, 101L, 1L, 999L, 301L, "999");
+        EventWinEntity win = EventWinEntity.create(201L, attendedRound, 999L, 301L, 999L);
         EventRoundPrizeEntity roundPrize = EventRoundPrizeEntity.builder()
                 .id(301L)
-                .roundId(101L)
+                .round(attendedRound)
                 .prizeId(401L)
                 .priority(0)
                 .isActive(true)
@@ -113,7 +113,7 @@ class GetEventDetailServiceTest {
 
         when(eventQueryPort.findById(1L)).thenReturn(Optional.of(event));
         when(eventRoundQueryPort.findAllByEventId(1L)).thenReturn(List.of(attendedRound, missedRound, todayRound, futureRound));
-        when(eventEntryQueryPort.findByEventIdAndMemberId(1L, 999L)).thenReturn(List.of(entry));
+        when(eventEntryRepositoryPort.findAttendedRoundIdsByEventIdAndMemberId(1L, 999L)).thenReturn(Set.of(101L));
         when(eventWinQueryPort.findByEventIdAndMemberId(1L, 999L)).thenReturn(List.of(win));
         when(eventRoundPrizeQueryPort.findByIds(java.util.Set.of(301L))).thenReturn(Map.of(301L, roundPrize));
         when(prizeQueryPort.findByIds(java.util.Set.of(401L))).thenReturn(Map.of(401L, prize));
@@ -138,7 +138,7 @@ class GetEventDetailServiceTest {
         EventDetailDto result = getEventDetailService.getEventDetail(new GetEventDetailQuery(1L, null));
 
         assertThat(result.attendanceSummary()).isNull();
-        assertThat(result.rounds()).allMatch(round -> round.status() == null && round.win() == null);
+        assertThat(result.rounds()).allMatch(round -> Objects.isNull(round.status()) && Objects.isNull(round.win()));
     }
 
     private EventRoundEntity round(Long id, int roundNo, LocalDate roundDate) {
@@ -146,7 +146,7 @@ class GetEventDetailServiceTest {
         Instant end = roundDate.plusDays(1).atStartOfDay(AppTimeZones.ASIA_SEOUL).minusSeconds(1).toInstant();
         return EventRoundEntity.builder()
                 .id(id)
-                .eventId(1L)
+                .event(event)
                 .roundNo(roundNo)
                 .roundStartAt(start)
                 .roundEndAt(end)

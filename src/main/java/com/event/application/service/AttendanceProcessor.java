@@ -22,7 +22,7 @@ public interface AttendanceProcessor {
             EventRoundEntity round,
             Long memberId,
             AttendanceRewardInfo rewardInfo,
-            int attendedDays,
-            int totalDays
+            long attendedDays,
+            long totalDays
     );
 }

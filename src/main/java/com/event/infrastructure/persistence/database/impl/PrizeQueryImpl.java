@@ -5,6 +5,7 @@ import com.event.domain.entity.PrizeEntity;
 import com.event.infrastructure.persistence.database.repository.PrizeJpaRepository;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -22,9 +23,10 @@ public class PrizeQueryImpl implements PrizeQueryPort {
         return prizeJpaRepository.findByIdAndIsDeletedFalse(prizeId);
     }
 
+    // todo : List 변경 -> Set 써야해서 안 변경해야함
     @Override
     public Map<Long, PrizeEntity> findByIds(Collection<Long> prizeIds) {
-        if (prizeIds == null || prizeIds.isEmpty()) {
+        if (Objects.isNull(prizeIds) || prizeIds.isEmpty()) {
             return Map.of();
         }
 

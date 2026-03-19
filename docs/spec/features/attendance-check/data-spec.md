@@ -11,7 +11,7 @@
 5. 출석 회차에 연결된 단일 point 보상 매핑이 있는지 확인한다.
 6. `event_entry`를 `event_id + applicant_id + member_id` 기준으로 저장하고 회차는 applicant를 통해 해석한다.
 7. 보상 매핑이 있으면 `event_win`을 저장하고 로컬 트랜잭션을 커밋한다.
-8. 로컬 트랜잭션 커밋 후 외부 point API를 호출한다.
+8. 로컬 트랜잭션 안에서 `PointGrantCommand`를 발행하고, commit 성공 후 `AFTER_COMMIT` listener가 외부 point API를 호출한다.
 
 ## 저장 예시
 
@@ -65,7 +65,7 @@ WHERE id = :roundId
 | --- | --- | --- | --- | --- | --- | --- |
 | ATT-DATA-001 | 출석 이벤트 마스터 | `promotion.event` | `id`, `event_type`, `supplier_id`, `start_at`, `end_at`, `is_active`, `is_visible`, `is_deleted`, `is_multiple_entry`, `is_auto_entry` | ATT-REQ-001 | DDL 반영 | 출석체크 이벤트는 `event_type = 'ATTENDANCE'`로 식별 |
 | ATT-DATA-002 | 출석 회차 | `promotion.event_round` | `id`, `event_id`, `round_no`, `round_start_at`, `round_end_at`, `is_deleted` | ATT-REQ-001, ATT-REQ-003 | DDL 반영 | `event_id -> event.id` FK, 월간 출석 이벤트는 날짜 수만큼 회차 생성 |
-| ATT-DATA-003 | 회차별 applicant 기준 | `promotion.event_applicant` | `id`, `event_id`, `round_id`, `member_id`, `is_deleted` | ATT-REQ-002, ATT-REQ-005 | 업무 확정, schema draft 반영 | `round_id -> event_round.id` FK, `(round_id, member_id)` 최소 unique |
+| ATT-DATA-003 | 회차별 applicant 기준 | `promotion.event_applicant` | `id`, `event_id`, `round_id`, `member_id`, `is_deleted` | ATT-REQ-002, ATT-REQ-005 | 업무 확정, schema draft 반영 | `round_id -> event_round.id` FK, `(round_id, member_id)` 최소 unique, `event_id + member_id` 집합 잠금 조회에 사용 |
 | ATT-DATA-004 | 응모권/참여 이력 | `promotion.event_entry` | `id`, `applicant_id`, `event_id`, `member_id`, `applied_at`, `event_round_prize_id`, `is_winner`, `is_deleted` | ATT-REQ-002, ATT-REQ-004, ATT-REQ-005 | 업무 확정, schema draft 반영 | 회차는 `applicant_id -> event_applicant.round_id`로 파생, 같은 회차/회원에도 여러 건 저장 가능 |
 | ATT-DATA-005 | 회차 번호 유일성 | `uq_event_round_event_round_no` | `(event_id, round_no)` | ATT-REQ-001 | DDL 반영 | 이벤트 내 회차 번호 중복 방지 |
 | ATT-DATA-006 | applicant 고유성 요구사항 | 출석 spec 기준 | `(round_id, member_id)` | ATT-REQ-002 | 업무 확정, schema draft 반영 | 회차별 applicant 최소 unique 기준 |
@@ -73,7 +73,7 @@ WHERE id = :roundId
 | ATT-DATA-008 | 보상 마스터 | `promotion.prize` | `id`, `prize_name`, `reward_type`, `point_amount`, `coupon_id`, `is_active`, `is_deleted` | ATT-REQ-005 | DDL 반영 | 출석체크는 주로 `POINT` 유형 사용 |
 | ATT-DATA-009 | 회차별 보상 연결 | `promotion.event_round_prize` | `id`, `round_id`, `prize_id`, `priority`, `daily_limit`, `total_limit`, `is_active`, `is_deleted` | ATT-REQ-005 | DDL 반영 | `round_id`, `prize_id` FK 보유, 출석체크는 회차당 `0..1` |
 | ATT-DATA-010 | 보상 결과 이력 | `promotion.event_win` | `id`, `entry_id`, `round_id`, `event_id`, `member_id`, `event_round_prize_id`, `is_deleted` | ATT-REQ-002, ATT-REQ-004, ATT-REQ-005, ATT-REQ-006 | DDL 반영 | 로컬 당첨/보상 확정 시 생성 |
-| ATT-DATA-011 | 확률 기반 보상 확장 경로 | `promotion.event_round_prize_probability` | `id`, `round_id`, `event_round_prize_id`, `probability`, `weight` | ATT-REQ-005 | DDL 반영 | `round_id`, `event_round_prize_id` FK 보유, `weight` 기본값은 `1` |
+| ATT-DATA-011 | 확률 기반 보상 확장 경로 | `promotion.event_round_prize_probability` | `id`, `round_id`, `event_round_prize_id`, `probability`, `weight` | ATT-REQ-005 | DDL 반영 | `round_id`, `event_round_prize_id` FK 보유, DB 기본값은 `1`, Java 코드는 `DEFAULT_WEIGHT` 상수 사용 |
 | ATT-DATA-012 | 감사/삭제 정보 | `event`, `event_round`, `event_applicant`, `event_entry`, `event_win`, `prize`, `event_round_prize` | `created_at`, `created_by`, `updated_at`, `updated_by`, `deleted_at`, `is_deleted` | ATT-REQ-005, ATT-REQ-006 | DDL 반영 | 전 테이블 공통 감사 패턴, `created_by/updated_by`는 `BIGINT` |
 
 ## 현재 해석에서 중요한 포인트
@@ -85,6 +85,8 @@ WHERE id = :roundId
 - `event_applicant`는 이벤트 단위 사전 참여 가능 대상 풀이 아니라, 출석 요청 시 생성하는 회차별 applicant 기준 레코드다.
 - `event_applicant`는 `(round_id, member_id)` 기준으로 식별하며, 같은 회차에는 한 건만 존재해야 한다.
 - 출석 이벤트에서는 1일차, 2일차, 3일차마다 각각 별도의 `event_applicant`가 생성된다.
+- 같은 `event_id + member_id`의 applicant 집합은 누적 출석 수 계산 시 잠금 대상이다.
+- 누적 출석 수는 잠금된 applicant 집합 크기에 `+1` 해서 계산한다.
 - 이번 출석체크에서는 회원별 사전 참여 가능 대상 체크를 두지 않는다.
 - `event_applicant.round_id`는 FK로 보호하고, `event_id`는 조회용 값참조로 유지한다.
 - soft delete된 `event_applicant`는 현재 유효 applicant로 보지 않으며, 동일 `(round_id, member_id)`로 새 레코드를 다시 생성할 수 있다.
@@ -114,7 +116,7 @@ WHERE id = :roundId
 - `prize`, `event_round_prize`를 함께 없애려면 두 레코드를 각각 soft delete한다.
 - 출석 회차에 보상 매핑이 없으면 point를 지급하지 않으며 `event_win`도 생성되지 않는다.
 - 랜덤 리워드는 같은 회차에 여러 보상 정책을 세팅할 수 있다.
-- 랜덤 리워드의 `weight` 기본값은 `1`이며, 운영 정책에 따라 확률 계산 보조값으로 사용한다.
+- 랜덤 리워드의 `weight` DB 기본값은 `1`이며, Java 코드에서는 `DEFAULT_WEIGHT` 같은 상수로 관리한다. 운영 정책에 따라 확률 계산 보조값으로 사용한다.
 - 랜덤 리워드의 꽝/미지급 케이스는 `event_win` 행 없이 처리한다.
 - 실제 출석 성공 1건에서 어떤 보상이 로컬 확정됐는지는 `event_win.event_round_prize_id`로 추적한다.
 - 보상 추적과 집계는 `event_entry.event_round_prize_id`보다 `event_win.event_round_prize_id`를 기준으로 본다.

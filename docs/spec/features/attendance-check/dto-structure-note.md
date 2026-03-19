@@ -154,14 +154,17 @@ service.attend(Map.of(...));
 
 예:
 
-- `EventApplicantCommandPort.save(EventApplicantEntity)`
-- `EventEntryCommandPort.save(EventEntryEntity)`
+- `EventApplicantRepositoryPort.findByEventIdAndMemberIdForUpdate(...)`
+- `EventApplicantRepositoryPort.save(EventApplicantEntity)`
+- `EventEntryRepositoryPort.save(EventEntryEntity)`
 - `EventQueryPort.findById(...) -> Optional<EventEntity>`
 
 이유:
 
 - 현재 프로젝트는 `output port`를 repository 추상화에 가깝게 사용한다.
 - Service가 도메인 Entity를 생성하고 저장 포트에 넘기는 구조를 이미 사용하고 있다.
+- `EventApplicant`처럼 저장과 lock 조회를 함께 쓰는 경우도 같은 repository port로 묶는 편이 현재 구조와 잘 맞는다.
+- `EventEntry`처럼 같은 저장소 책임 안의 조회/저장은 `RepositoryPort` 하나로 묶어도 현재 구조와 잘 맞는다.
 - 조회/저장 포트에서 Entity를 그대로 주고받는 것이 현재 코드베이스와 가장 일관적이다.
 
 즉, 이번 기준은 아래처럼 나눠서 본다.
@@ -204,6 +207,9 @@ service.attend(Map.of(...));
 
 - 서비스가 출석 응모를 끝낸 뒤 Controller 쪽으로 돌려주는 값이다.
 - 아직 최종 HTTP 응답은 아니지만, 호출자가 이해할 수 있는 결과 형태다.
+- `AttendanceSummaryDto`의 `attendedDays`, `totalDays` 같은 count 값은 `long`을 사용한다.
+- 이유는 DB `COUNT(*)`가 보통 `BIGINT`이고, JPA count 반환도 `long`이 자연스럽기 때문이다.
+- 현재 기능에서 값이 작아 보여도 `int`로 줄이는 실익이 거의 없으므로 count는 기본적으로 `long`으로 가져간다.
 
 주의:
 
@@ -217,7 +223,6 @@ service.attend(Map.of(...));
 예:
 
 - `AttendanceRewardInfo`
-- `AttendEventTransactionResult`
 
 의미:
 
@@ -298,7 +303,8 @@ service.attend(Map.of(...));
 
 ```text
 AttendEventTransactionService
-  -> PointGrantCommand
+  -> publishEvent(PointGrantCommand)
+  -> PointRewardAfterCommitListener
   -> PointRewardPort
   -> PointGrantResult
 ```
@@ -318,33 +324,33 @@ AttendEventTransactionService
 
 셋은 목적이 다르다.
 
-- `@Comment`: DB 테이블/컬럼 설명
+- `@Comment`: Entity 필드/테이블 의미를 코드에서 읽기 좋게 보여 주는 설명
 - `@Schema`: API 요청/응답 필드 설명
 - 코드 주석: 서비스 흐름이나 분기 이유 설명
 
 쉽게 말하면 아래처럼 보면 된다.
 
-- DB에 남길 설명이면 `@Comment`
+- Entity 선언부에서 필드 의미를 보기 좋게 드러내고 싶으면 `@Comment`
 - Swagger/OpenAPI에 보여 줄 설명이면 `@Schema`
 - "왜 이렇게 동작하는지"를 개발자에게 설명하려면 코드 주석
 
 예:
 
-- Entity의 `createdAt` 의미를 DB 레벨에 남기고 싶다 -> `@Comment("등록 일시")`
+- Entity의 `eventName` 의미를 코드에서 바로 읽히게 하고 싶다 -> `@Comment("이벤트명")`
 - Response DTO의 `winner` 필드를 Swagger에 설명하고 싶다 -> `@Schema(description = "당첨 여부")`
 - `AttendEventTransactionService`에서 회차를 PK로 조회하고 mismatch를 따로 검증하는 이유를 남기고 싶다 -> 코드 주석
 
 주의:
 
 - 현재 프로젝트는 `src/main/resources/application.yml`에서 `ddl-auto: none`이다.
-- 그래서 Entity에 `@Comment`를 붙여도 DB comment가 자동 반영되지 않을 수 있다.
-- 이 경우 DB comment가 정말 필요하면 마이그레이션 SQL이나 DDL에서 관리하는 쪽이 더 확실하다.
+- 그래서 Entity의 `@Comment`는 현재 기준으로 DDL 연결 목적이 아니라 코드 가독성 목적에 가깝다.
+- 실제 DB comment를 반드시 맞춰야 하는 요구가 생기면 그때는 마이그레이션 SQL이나 DDL에서 별도로 관리한다.
 
 즉, 이번 출석체크 기준으로는 아래처럼 이해하면 된다.
 
 - `response DTO`: `@Schema`
 - `application/service`: 코드 주석
-- `entity`: `@Comment`는 가능하지만, 실제 DB 반영 방식까지 같이 봐야 한다
+- `entity`: `@Comment`로 필드 의미를 보기 좋게 드러낸다
 
 ## 12. 다음에 DTO를 추가할 때 체크할 질문
 

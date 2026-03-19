@@ -2,15 +2,14 @@ package com.event.presentation.controller;
 
 import com.event.application.dto.event.GetEventDetailQuery;
 import com.event.application.port.input.GetEventDetailUseCase;
-import com.event.presentation.header.ApiHeaderNames;
 import com.event.presentation.dto.response.BaseResponse;
 import com.event.presentation.dto.response.EventDetailResponse;
+import com.event.presentation.resolver.MemberId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,12 +25,12 @@ public class EventController {
     @GetMapping("/{eventId}")
     public BaseResponse<EventDetailResponse> getEvent(
             @PathVariable Long eventId,
-            @RequestHeader(value = ApiHeaderNames.X_MEMBER_ID, required = false) Long memberId
+            @MemberId(required = false) Long memberId
     ) {
         EventDetailResponse response = EventDetailResponse.from(
                 getEventDetailUseCase.getEventDetail(GetEventDetailQuery.of(eventId, memberId))
         );
 
-        return BaseResponse.success("이벤트를 조회했습니다.", response);
+        return BaseResponse.success(response);
     }
 }

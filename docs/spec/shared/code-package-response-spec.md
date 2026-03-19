@@ -40,8 +40,7 @@ domain
          ├ EventCode
          ├ EntryCode
          ├ AttendanceCode
-         ├ PrizeCode
-         └ RewardCode
+         └ PrizeCode
 
 presentation
  ├ dto
@@ -67,7 +66,7 @@ infrastructure
 
 ## 4. BaseResponse
 
-`BaseResponse`는 아래 코드 형태로 고정한다.
+`BaseResponse`는 아래 코드 형태를 기준으로 사용한다.
 
 ```java
 @Builder
@@ -87,10 +86,14 @@ public record BaseResponse<T>(
                 .build();
     }
 
-    public static <T> BaseResponse<T> success(String message, T data) {
+    public static <T> BaseResponse<T> success(T data) {
+        return success(CommonCode.SUCCESS, data);
+    }
+
+    public static <T> BaseResponse<T> success(ResponseCode code, T data) {
         return BaseResponse.<T>builder()
-                .code(CommonCode.SUCCESS.getCode())
-                .message(message)
+                .code(code.getCode())
+                .message(code.getMessage())
                 .timestamp(Instant.now())
                 .data(data)
                 .build();
@@ -118,11 +121,16 @@ public record BaseResponse<T>(
 
 설명:
 
-- 이 구현 자체는 고정이다.
-- 성공 응답은 `BaseResponse.success(...)`를 사용하고 `code = SUCCESS`를 반환한다.
+- 이 구현 자체는 공통 envelope 기준이다.
+- `code`, `message`, `timestamp`는 항상 채우고 null 또는 생략을 허용하지 않는다.
+- `data`도 envelope 필드로 항상 포함하고, 값만 payload 의미에 따라 객체/배열/null로 표현한다.
+- 성공 응답은 기본적으로 `BaseResponse.success(T data)`를 사용하고 `code = SUCCESS`, `message = 성공`을 채운다.
+- 성공 응답에서 다른 성공 code/message가 필요할 때만 `BaseResponse.success(ResponseCode code, T data)`를 사용한다.
 - 오류 응답도 `BaseResponse.error(...)` 팩토리 메서드로 생성하는 것을 권장한다.
 - `BusinessException` 오류 응답은 `BaseResponse.error(ResponseCode code)`를 사용하고, `code = domain code`를 반환한다.
 - Validation/System 오류 응답은 `BaseResponse.error(CommonCode code, String message, T data)`를 사용하고, `code = CommonCode.code`를 반환한다.
+- Collection 응답 필드는 null 대신 빈 배열 `[]`를 사용한다.
+- 의미 있는 선택 객체는 `null`로 표현할 수 있고, 조건부 하위 필드는 null 대신 생략할 수 있다.
 
 ## 5. ResponseCode 인터페이스
 
@@ -218,7 +226,7 @@ public class EventEntryRequest {
 참고:
 
 - 현재 출석 POST API는 body가 없고 `roundId`가 path variable이므로 위 예시는 공통 validation 방식 설명용이다.
-- `X-Member-Id`는 DTO annotation이 아니라 `@RequestHeader` 바인딩으로 처리한다.
+- `X-Member-Id`는 DTO annotation이 아니라 interceptor + argument resolver로 처리한다.
 
 ## 8. Domain ErrorCode 설계
 
@@ -235,11 +243,12 @@ domain code enum은 아래 필드를 가진다.
 - `EntryCode`
 - `AttendanceCode`
 - `PrizeCode`
-- `RewardCode`
 
 ### EventCode 예시
 
 ```java
+import java.util.Objects;
+
 @Getter
 @AllArgsConstructor
 public enum EventCode implements ResponseCode {
@@ -292,7 +301,7 @@ public enum EventCode implements ResponseCode {
 
     @Override
     public HttpStatus getStatus() {
-        return statusOverride != null ? statusOverride : commonCode.getStatus();
+        return Objects.nonNull(statusOverride) ? statusOverride : commonCode.getStatus();
     }
 }
 ```
@@ -413,9 +422,9 @@ Validation 예시 응답:
 
 ## 11. 헤더 처리 원칙
 
-- `X-Member-Id`는 interceptor가 아니라 controller header binding으로 처리한다.
-- 출석 `POST`에서는 `@RequestHeader("X-Member-Id")`로 필수 처리한다.
-- 이벤트 상세 `GET`에서는 `@RequestHeader(value = "X-Member-Id", required = false)`로 선택 처리한다.
+- `X-Member-Id`는 controller에서 직접 `@RequestHeader`로 받지 않고 interceptor + argument resolver로 처리한다.
+- 출석 `POST`에서는 `@MemberId`로 필수 처리한다.
+- 이벤트 상세 `GET`에서는 `@MemberId(required = false)`로 선택 처리한다.
 - 헤더 누락 예외는 `GlobalExceptionHandler`가 `INVALID_REQUEST`로 변환한다.
 
 ## 12. 실제 API 응답 예시
@@ -475,5 +484,5 @@ message=X-Member-Id 헤더는 필수입니다.
 - DTO Validation -> annotation message
 - Business Error -> domain code enum
 - API Response -> success `SUCCESS`, error `ResponseCode.code`
-- Header required/optional -> controller `@RequestHeader`
+- Header required/optional -> interceptor + argument resolver
 - Exception 처리 -> `GlobalExceptionHandler`

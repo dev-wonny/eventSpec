@@ -21,11 +21,11 @@ public class EventRoundQueryImpl implements EventRoundQueryPort {
 
     @Override
     public List<EventRoundEntity> findAllByEventId(Long eventId) {
-        return eventRoundJpaRepository.findByEventIdAndIsDeletedFalseOrderByRoundNoAsc(eventId);
+        return eventRoundJpaRepository.findByEvent_IdAndIsDeletedFalseOrderByRoundNoAsc(eventId);
     }
 
     @Override
     public long countByEventId(Long eventId) {
-        return eventRoundJpaRepository.countByEventIdAndIsDeletedFalse(eventId);
+        return eventRoundJpaRepository.countByEvent_IdAndIsDeletedFalse(eventId);
     }
 }

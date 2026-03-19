@@ -45,7 +45,7 @@
 
 - [x] `event_entry.event_round_prize_id`는 보조값으로만 사용하며 `NULL` 가능하다.
 - [x] 로컬 보상 확정의 SoT는 `event_win.event_round_prize_id`다.
-- [x] 랜덤 리워드의 기본 계산 규칙은 `weight` 기본값 `1`을 기준으로 해석한다.
+- [x] 랜덤 리워드의 기본 계산 규칙은 `weight` DB 기본값 `1`을 기준으로 해석하고, Java 코드에서는 `DEFAULT_WEIGHT` 상수로 관리한다.
 - [ ] `GET`에서 `X-Member-Id`가 없을 때 `attendanceSummary`를 생략할지, `totalDays`만 줄지
 - [x] soft delete된 applicant/entry가 있더라도 재출석은 허용한다.
 - [x] soft delete된 `prize`, `event_round_prize`는 현재 활성 설정 조회에서는 제외한다.
@@ -59,7 +59,7 @@
 - [x] system 처리도 문자열 `system`이 아니라 실행 주체로 해석하는 member id 값을 참조해 기록한다.
 - [x] 랜덤 리워드의 꽝/미지급 케이스는 `event_win` 행 없이 처리한다.
 - [x] 외부 point API 타임아웃은 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`를 사용한다.
-- [x] 외부 point API 타임아웃은 외부 시스템 장애로 간주하고, 운영 알림 및 재처리 대상으로 관리한다.
+- [x] 외부 point API 타임아웃은 외부 API 실패로 간주하고, 운영 알림 및 재처리 대상으로 관리한다.
 - [ ] 향후 AWS 기반 큐 전환 시 `event_win` 생성 시점을 어떻게 가져갈지
 - [x] 외부 point API 실패 후 자동 point 보정 차감은 하지 않는다.
 - [x] 외부 point API는 `idempotency_key = event_id + round_id + member_id`를 사용한다.

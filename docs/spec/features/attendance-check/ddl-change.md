@@ -296,6 +296,8 @@ CREATE UNIQUE INDEX uq_event_applicant_round_member_id
 
 - 현재 조건은 신규 환경이므로 전체 스키마를 최종 목표 구조로 바로 생성하면 된다.
 - `event_applicant`는 회차별 applicant 기준이며 출석 중복 제어의 기준이 된다.
+- 같은 `event_id + member_id`의 applicant 집합은 누적 출석 수 계산 시 `FOR UPDATE` 잠금 대상으로 사용한다.
+- 조회는 같은 조건과 같은 정렬 순서로 수행해 set-level locking 흐름을 유지한다.
 - 출석 중복의 비즈니스 판정은 `event_applicant (round_id, member_id)` 기준으로 애플리케이션과 unique에서 함께 방어한다.
 - `event_entry`의 회차는 `event_entry.applicant_id -> event_applicant.round_id`로 파생한다.
 - `event_entry.event_round_prize_id`는 보조값이며 로컬 보상 확정의 SoT는 `event_win.event_round_prize_id`다.

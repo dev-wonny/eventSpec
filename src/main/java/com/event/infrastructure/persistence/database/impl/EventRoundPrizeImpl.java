@@ -6,6 +6,7 @@ import com.event.infrastructure.persistence.database.repository.EventRoundPrizeJ
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +20,13 @@ public class EventRoundPrizeImpl implements EventRoundPrizeQueryPort {
 
     @Override
     public List<EventRoundPrizeEntity> findActiveByRoundId(Long roundId) {
-        return eventRoundPrizeJpaRepository.findByRoundIdAndIsActiveTrueAndIsDeletedFalseOrderByPriorityAscIdAsc(roundId);
+        return eventRoundPrizeJpaRepository.findByRound_IdAndIsActiveTrueAndIsDeletedFalseOrderByPriorityAscIdAsc(roundId);
     }
 
+    // todo : List 변경 -> Set 써야해서 안 변경해야함
     @Override
     public Map<Long, EventRoundPrizeEntity> findByIds(Collection<Long> eventRoundPrizeIds) {
-        if (eventRoundPrizeIds == null || eventRoundPrizeIds.isEmpty()) {
+        if (Objects.isNull(eventRoundPrizeIds) || eventRoundPrizeIds.isEmpty()) {
             return Map.of();
         }
 

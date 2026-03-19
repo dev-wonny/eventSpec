@@ -61,7 +61,7 @@
 
 - `INFO`: 정상 요청 시작/종료, 주요 비즈니스 상태 전이
 - `WARN`: 중복 출석, 외부 API 재시도 가능 오류, 유효성 경계 상황
-- `ERROR`: 외부 point API 실패, 타임아웃, 예기치 못한 예외
+- `ERROR`: 외부 point API 실패, 예기치 못한 예외
 - `DEBUG`: 로컬 개발 또는 문제 분석용 추가 정보
 
 ## 6. 출석체크 기준 로깅 포인트
@@ -74,16 +74,16 @@
 4. `event_applicant` unique 충돌 여부
 5. 보상 매핑 존재 여부
 6. point API 요청 시작
-7. point API 성공/실패/타임아웃 결과
+7. point API 성공/실패 결과
 8. `event_entry`, `event_win` 저장 결과
-9. point API 성공/실패/타임아웃 결과와 운영 알림 여부
+9. point API 성공/실패 결과와 운영 알림 여부
 10. 최종 응답 결과
 
-### point API 타임아웃 로그 기준
+### point API 실패 로그 기준
 
 - point API timeout 기준은 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`다.
-- 타임아웃 발생 시 `ERROR` 레벨 로그를 남긴다.
-- 필수 로그 필드는 `requestId`, `commonCode=INTERNAL_ERROR`, `domainCode=POINT_API_TIMEOUT`, `eventId`, `roundId`, `memberId`다.
+- 타임아웃도 외부 point API 실패로 묶어 `ERROR` 레벨 로그를 남긴다.
+- 필수 로그 필드는 `requestId`, `commonCode=INTERNAL_ERROR`, `eventId`, `roundId`, `memberId`다.
 - 재시도 시에도 같은 `idempotency_key = event_id + round_id + member_id`를 사용한다는 점을 로그 문맥에서 추적 가능해야 한다.
 
 ## 7. 요청 처리 체인
@@ -122,7 +122,7 @@ GlobalExceptionHandler
 - Spring Boot에서는 `logstash-logback-encoder`를 사용해 JSON 로그를 출력한다.
 - 수집 에이전트 구성 방식은 인프라 표준을 따르되, 애플리케이션은 ELK 적재를 전제로 로그 포맷을 맞춘다.
 - Kibana에서 `requestId`, `memberId`, `eventId`, `roundId` 기준 조회가 가능해야 한다.
-- 운영자는 중복 출석, point 지급 실패, 외부 API 타임아웃을 Kibana에서 검색할 수 있어야 한다.
+- 운영자는 중복 출석, point 지급 실패, 외부 API 실패를 Kibana에서 검색할 수 있어야 한다.
 - ECS 환경에서는 파일 로그보다 stdout/stderr 스트림 수집을 우선 기준으로 본다.
 
 ### Kibana 조회 예시
@@ -151,17 +151,13 @@ requestId : "8F1C5D9A"
 
 ```text
 com.event
-├── common
-│   ├── logging
-│   │   ├── LogFieldNames
-│   │   └── LogContextKeys
 └── infrastructure
-    ├── filter
-    │   └── RequestIdFilter
-    └── logging
-        ├── AccessLogFilter
-        └── LogbackConfigSupport
+    └── filter
+        ├── RequestIdFilter
+        └── AccessLogFilter
 ```
+
+로그 문맥에 사용하는 key 문자열은 공용 `LogContextKeys` 클래스로 모으지 않고, 각 클래스 상단 상수로 선언한다.
 
 ## 10. RequestId 정책
 
@@ -187,6 +183,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.UUID;
 
 @Component
@@ -194,7 +191,7 @@ import java.util.UUID;
 public class RequestIdFilter extends OncePerRequestFilter {
 
     public static final String REQUEST_ID_HEADER = "X-Request-Id";
-    public static final String REQUEST_ID_MDC_KEY = "requestId";
+    private static final String REQUEST_ID_LOG_KEY = "requestId";
 
     @Override
     protected void doFilterInternal(
@@ -205,17 +202,17 @@ public class RequestIdFilter extends OncePerRequestFilter {
 
         String requestId = request.getHeader(REQUEST_ID_HEADER);
 
-        if (requestId == null || requestId.isBlank()) {
+        if (Objects.isNull(requestId) || requestId.isBlank()) {
             requestId = UUID.randomUUID().toString().replace("-", "");
         }
 
-        MDC.put(REQUEST_ID_MDC_KEY, requestId);
+        MDC.put(REQUEST_ID_LOG_KEY, requestId);
         response.setHeader(REQUEST_ID_HEADER, requestId);
 
         try {
             filterChain.doFilter(request, response);
         } finally {
-            MDC.remove(REQUEST_ID_MDC_KEY);
+            MDC.remove(REQUEST_ID_LOG_KEY);
         }
     }
 }

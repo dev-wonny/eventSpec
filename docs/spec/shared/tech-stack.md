@@ -38,7 +38,8 @@
 ## 구현 시사점
 
 - 패키지 루트는 현재 Gradle `group` 기준인 `com.event`를 사용한다.
-- 외부 포인트 지급 클라이언트는 Spring Web 기반 HTTP 클라이언트로 구현한다.
+- 외부 포인트 지급 클라이언트는 Spring Cloud 없이 pure OpenFeign 기반으로 구현한다.
+- `@FeignClient`는 도입하지 않고, ECS/ALB 환경 전제에서 Feign builder 기반 client를 사용한다.
 - QueryDSL Q 클래스는 Gradle generated source 설정을 기준으로 관리한다.
 - QueryDSL 검색 조건 빌더는 `...EntityBuilder` 클래스와 `BooleanBuilder` 기반 조합을 기본으로 한다.
 - 조회는 JPA 연관 join보다 QueryDSL 개별 조회를 기본 경로로 사용한다.
@@ -80,6 +81,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+    implementation 'io.github.openfeign:feign-core:13.5'
+    implementation 'io.github.openfeign:feign-jackson:13.5'
 
     implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
     annotationProcessor 'com.querydsl:querydsl-apt:5.1.0:jakarta'

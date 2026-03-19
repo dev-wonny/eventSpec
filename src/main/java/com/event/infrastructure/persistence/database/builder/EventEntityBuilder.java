@@ -11,10 +11,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
-public class EventEntityBuilder {
+public class EventEntityBuilder implements ConditionBuilder<EventSearchCondition> {
 
+    @Override
     public BooleanBuilder buildWhere(EventSearchCondition condition) {
-        EventSearchCondition safeCondition = condition == null ? EventSearchCondition.empty() : condition;
+        EventSearchCondition safeCondition = Objects.isNull(condition) ? EventSearchCondition.empty() : condition;
 
         return new BooleanBuilder()
                 .and(eventEntity.isDeleted.isFalse())
@@ -26,32 +27,22 @@ public class EventEntityBuilder {
     }
 
     private BooleanExpression eventNameContains(String eventName) {
-        return StringUtils.hasText(eventName)
-                ? eventEntity.eventName.containsIgnoreCase(eventName)
-                : null;
+        return StringUtils.hasText(eventName) ? eventEntity.eventName.containsIgnoreCase(eventName) : null;
     }
 
     private BooleanExpression eventTypeEq(EventType eventType) {
-        return Objects.nonNull(eventType)
-                ? eventEntity.eventType.eq(eventType)
-                : null;
+        return Objects.nonNull(eventType) ? eventEntity.eventType.eq(eventType) : null;
     }
 
     private BooleanExpression isActiveEq(Boolean isActive) {
-        return Objects.nonNull(isActive)
-                ? eventEntity.isActive.eq(isActive)
-                : null;
+        return Objects.nonNull(isActive) ? eventEntity.isActive.eq(isActive) : null;
     }
 
     private BooleanExpression isVisibleEq(Boolean isVisible) {
-        return Objects.nonNull(isVisible)
-                ? eventEntity.isVisible.eq(isVisible)
-                : null;
+        return Objects.nonNull(isVisible) ? eventEntity.isVisible.eq(isVisible) : null;
     }
 
     private BooleanExpression supplierIdEq(Long supplierId) {
-        return Objects.nonNull(supplierId)
-                ? eventEntity.supplierId.eq(supplierId)
-                : null;
+        return Objects.nonNull(supplierId) ? eventEntity.supplierId.eq(supplierId) : null;
     }
 }

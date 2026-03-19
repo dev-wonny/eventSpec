@@ -47,8 +47,6 @@ class EventEntryControllerTest {
                         .header(ApiHeaderNames.X_MEMBER_ID, "999")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("SUCCESS"))
-                .andExpect(jsonPath("$.message").value("출석 체크가 완료되었습니다."))
                 .andExpect(jsonPath("$.data.entryId").value(200))
                 .andExpect(jsonPath("$.data.win.rewardType").value("POINT"));
     }

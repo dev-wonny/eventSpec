@@ -63,7 +63,6 @@ class EventControllerTest {
         mockMvc.perform(get("/event/v1/events/1")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.rounds[0].status").value(nullValue()))
                 .andExpect(jsonPath("$.data.rounds[0].win").value(nullValue()))
                 .andExpect(jsonPath("$.data.supplierId").value(1));

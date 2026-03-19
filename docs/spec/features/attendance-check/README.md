@@ -7,6 +7,8 @@
 - `use-cases.md`: 사용자 시나리오와 요구사항
 - `business-rules.md`: 출석 정책과 검증 규칙
 - `service-validation.md`: Service 레이어에서 강제할 검증 규칙
+- `after-commit-external-api.md`: 외부 point API를 after-commit listener로 분리하는 이유와 구조
+- `point-api-feign-client.md`: Spring Cloud 없이 pure Feign으로 point API를 호출하는 기준
 - `concurrency-control.md`: 중복 출석 방지, DB unique, point API idempotency 전략
 - `api-spec.md`: 확정된 외부용 API 계약 문서
 - `data-spec.md`: 제공된 DDL을 반영한 데이터 문서
@@ -43,13 +45,13 @@
 - 추첨형 이벤트에서는 최초 `event_entry.is_winner = false`로 저장하고, 나중에 추첨 결과가 나오면 `event_entry.is_winner = true` update와 `event_win` insert를 함께 처리한다.
 - 출석체크는 회차당 보상 매핑이 `0..1`개다. 매핑이 없으면 무보상 출석으로 처리한다.
 - 랜덤 리워드는 하나의 `event_round`에 여러 `event_round_prize`를 둘 수 있고, 로컬 보상 확정은 `event_win.event_round_prize_id`로 추적된다.
-- 랜덤 리워드의 `event_round_prize_probability.weight` 기본값은 `1`이다.
+- 랜덤 리워드의 `event_round_prize_probability.weight` DB 기본값은 `1`이며, Java 코드에서는 `DEFAULT_WEIGHT` 같은 상수로 관리한다.
 - 랜덤 리워드의 꽝/미지급 케이스는 `event_win` 행 없이 처리한다.
 - `event_entry.event_round_prize_id`는 보조값이며 `NULL` 가능하고, 로컬 보상 확정의 SoT는 `event_win.event_round_prize_id`다.
 - `event_win`은 로컬 트랜잭션 안에서 확정된 당첨/보상 정보를 남긴다.
-- 현재 출석 성공은 `event_applicant`, `event_entry`, `event_win` 로컬 커밋 기준이며, 외부 point API는 커밋 후 호출한다.
+- 현재 출석 성공은 `event_applicant`, `event_entry`, `event_win` 로컬 커밋 기준이며, 외부 point API는 `AFTER_COMMIT` listener에서 후행 호출한다.
 - 외부 point API timeout 기준은 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`다.
-- 외부 point API 실패나 타임아웃은 local rollback 사유가 아니며, `ERROR` 로그와 운영 알림 대상으로 남긴다.
+- 외부 point API 실패는 타임아웃을 포함한 외부 연동 실패로 보고, local rollback 사유로 삼지 않으며 `ERROR` 로그와 운영 알림 대상으로 남긴다.
 - `EVENT_NOT_ACTIVE`는 운영 중단/급정지 상황에 사용하고, 고객 메시지는 `현재 참여가 잠시 중단되었어요.`로 안내한다.
 - `EVENT_EXPIRED`는 기간 만료뿐 아니라 운영 종료로 더 이상 참여를 받지 않는 상태까지 포함하고, 고객 메시지는 `이 이벤트는 참여가 마감되었어요.`로 안내한다.
 - 이번 프로젝트는 외부용 API만 제공하고, admin API는 별도 프로젝트에서 담당한다.
@@ -69,10 +71,12 @@
 3. `service-validation.md`로 Service 검증 책임을 고정한다.
 4. `concurrency-control.md`로 동시성/중복 방지 전략을 고정한다.
 5. `api-spec.md`와 `data-spec.md`에 입력물(DDL/API)을 연결한다.
-6. `exception-handling.md`로 예외 및 post-commit 실패 대응 흐름을 고정한다.
-7. `test-scenarios.md`로 구현 완료 기준을 검증한다.
-8. `traceability.md`로 연결 누락이 없는지 확인한다.
-9. 합의되지 않은 내용은 `open-questions.md`에 남긴다.
+6. `after-commit-external-api.md`로 외부 API 분리 구조를 확인한다.
+7. `point-api-feign-client.md`로 외부 point API client 구현 기준을 확인한다.
+8. `exception-handling.md`로 예외 및 post-commit 실패 대응 흐름을 고정한다.
+9. `test-scenarios.md`로 구현 완료 기준을 검증한다.
+10. `traceability.md`로 연결 누락이 없는지 확인한다.
+11. 합의되지 않은 내용은 `open-questions.md`에 남긴다.
 
 ## 기능 식별자 prefix
 

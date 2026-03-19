@@ -2,9 +2,10 @@ package com.event.application.service;
 
 import com.event.application.dto.attendance.internal.AttendanceRewardInfo;
 import com.event.application.dto.attendance.result.AttendEventResult;
-import com.event.application.port.output.EventEntryCommandPort;
+import com.event.application.port.output.EventEntryRepositoryPort;
 import com.event.application.port.output.EventWinCommandPort;
 import com.event.domain.entity.EventApplicantEntity;
+import com.event.domain.entity.EventEntity;
 import com.event.domain.entity.EventEntryEntity;
 import com.event.domain.entity.EventRoundEntity;
 import com.event.domain.entity.EventWinEntity;
@@ -26,7 +27,7 @@ import static org.mockito.Mockito.when;
 class PointAttendanceProcessorTest {
 
     @Mock
-    private EventEntryCommandPort eventEntryCommandPort;
+    private EventEntryRepositoryPort eventEntryRepositoryPort;
 
     @Mock
     private EventWinCommandPort eventWinCommandPort;
@@ -39,34 +40,37 @@ class PointAttendanceProcessorTest {
 
     @BeforeEach
     void setUp() {
-        applicant = EventApplicantEntity.builder()
-                .id(100L)
-                .eventId(1L)
-                .roundId(11L)
-                .memberId(999L)
+        EventEntity event = EventEntity.builder()
+                .id(1L)
+                .eventName("attendance")
                 .build();
 
         round = EventRoundEntity.builder()
                 .id(11L)
-                .eventId(1L)
+                .event(event)
                 .roundNo(2)
                 .isConfirmed(false)
+                .build();
+
+        applicant = EventApplicantEntity.builder()
+                .id(100L)
+                .event(event)
+                .round(round)
+                .memberId(999L)
                 .build();
     }
 
     @Test
     void process_shouldSaveEntryOnly_whenRewardIsAbsent() {
         EventEntryEntity savedEntry = EventEntryEntity.create(
-                applicant.getId(),
-                applicant.getEventId(),
-                round.getId(),
+                applicant,
                 applicant.getMemberId(),
                 null,
                 false,
-                String.valueOf(applicant.getMemberId())
+                applicant.getMemberId()
         );
 
-        when(eventEntryCommandPort.save(any(EventEntryEntity.class))).thenReturn(savedEntry);
+        when(eventEntryRepositoryPort.save(any(EventEntryEntity.class))).thenReturn(savedEntry);
 
         AttendEventResult result = pointAttendanceProcessor.process(
                 applicant,
@@ -85,24 +89,21 @@ class PointAttendanceProcessorTest {
     @Test
     void process_shouldSaveWin_whenRewardExists() {
         EventEntryEntity savedEntry = EventEntryEntity.create(
-                applicant.getId(),
-                applicant.getEventId(),
-                round.getId(),
+                applicant,
                 applicant.getMemberId(),
                 300L,
                 true,
-                String.valueOf(applicant.getMemberId())
+                applicant.getMemberId()
         );
         EventWinEntity savedWin = EventWinEntity.create(
                 200L,
-                round.getId(),
-                applicant.getEventId(),
+                round,
                 applicant.getMemberId(),
                 300L,
-                String.valueOf(applicant.getMemberId())
+                applicant.getMemberId()
         );
 
-        when(eventEntryCommandPort.save(any(EventEntryEntity.class))).thenReturn(savedEntry);
+        when(eventEntryRepositoryPort.save(any(EventEntryEntity.class))).thenReturn(savedEntry);
         when(eventWinCommandPort.save(any(EventWinEntity.class))).thenReturn(savedWin);
 
         AttendEventResult result = pointAttendanceProcessor.process(

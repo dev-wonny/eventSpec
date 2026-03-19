@@ -4,12 +4,13 @@ import com.event.application.dto.attendance.internal.AttendanceRewardInfo;
 import com.event.application.dto.attendance.result.AttendEventResult;
 import com.event.application.dto.attendance.result.AttendanceSummaryDto;
 import com.event.application.dto.attendance.result.AttendanceWinDto;
-import com.event.application.port.output.EventEntryCommandPort;
+import com.event.application.port.output.EventEntryRepositoryPort;
 import com.event.application.port.output.EventWinCommandPort;
 import com.event.domain.entity.EventApplicantEntity;
 import com.event.domain.entity.EventEntryEntity;
 import com.event.domain.entity.EventRoundEntity;
 import com.event.domain.entity.EventWinEntity;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +24,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PointAttendanceProcessor implements AttendanceProcessor {
 
-    private final EventEntryCommandPort eventEntryCommandPort;
+    private final EventEntryRepositoryPort eventEntryRepositoryPort;
     private final EventWinCommandPort eventWinCommandPort;
 
     @Override
@@ -32,24 +33,24 @@ public class PointAttendanceProcessor implements AttendanceProcessor {
             EventRoundEntity round,
             Long memberId,
             AttendanceRewardInfo rewardInfo,
-            int attendedDays,
-            int totalDays
+            long attendedDays,
+            long totalDays
     ) {
         // 생성자/수정자 기록은 현재 요청 회원을 그대로 사용한다.
         Long actor = memberId;
+        boolean hasRewardInfo = Objects.nonNull(rewardInfo);
 
         // 1. 출석 자체를 의미하는 entry를 먼저 저장한다.
         EventEntryEntity eventEntry = EventEntryEntity.create(
-                applicant.getId(),
-                applicant.getEventId(),
+                applicant,
                 memberId,
-                rewardInfo != null ? rewardInfo.eventRoundPrizeId() : null,
-                rewardInfo != null,
+                hasRewardInfo ? rewardInfo.eventRoundPrizeId() : null,
+                hasRewardInfo,
                 actor
         );
-        EventEntryEntity savedEntry = eventEntryCommandPort.save(eventEntry);
+        EventEntryEntity savedEntry = eventEntryRepositoryPort.save(eventEntry);
 
-        if (rewardInfo == null) {
+        if (Objects.isNull(rewardInfo)) {
             // 보상이 없어도 entry는 남기고, 응답은 미당첨 출석 결과로 조립한다.
             // 2-1. 보상 매핑이 없으면 무보상 출석 결과를 바로 반환한다.
             return AttendEventResult.of(
@@ -66,8 +67,7 @@ public class PointAttendanceProcessor implements AttendanceProcessor {
         // 2-2. 보상 매핑이 있으면 win을 추가 저장하고 당첨 정보를 결과에 포함한다.
         EventWinEntity savedWin = eventWinCommandPort.save(EventWinEntity.create(
                 savedEntry.getId(),
-                round.getId(),
-                applicant.getEventId(),
+                round,
                 memberId,
                 rewardInfo.eventRoundPrizeId(),
                 actor

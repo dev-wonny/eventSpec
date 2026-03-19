@@ -2,10 +2,13 @@ package com.event.presentation.dto.response;
 
 import com.event.application.dto.attendance.result.AttendanceWinDto;
 import com.event.domain.model.RewardType;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Objects;
 import lombok.Builder;
 
 @Schema(description = "응모 당첨 정보 응답")
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @Builder
 public record EventEntryWinResponse(
         @Schema(description = "당첨 ID")
@@ -14,14 +17,14 @@ public record EventEntryWinResponse(
         String prizeName,
         @Schema(description = "보상 유형")
         RewardType rewardType,
-        @Schema(description = "지급 포인트 금액")
+        @Schema(description = "지급 포인트 금액. POINT 보상일 때만 포함")
         Integer pointAmount,
-        @Schema(description = "쿠폰 코드. 쿠폰 보상이 아니면 null")
+        @Schema(description = "쿠폰 코드. COUPON 보상일 때만 포함")
         String couponCode
 ) {
 
     public static EventEntryWinResponse from(AttendanceWinDto dto) {
-        if (dto == null) {
+        if (Objects.isNull(dto)) {
             return null;
         }
 

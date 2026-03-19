@@ -1,13 +1,12 @@
 package com.event.application.service;
 
 import com.event.application.dto.attendance.command.AttendEventCommand;
-import com.event.application.dto.attendance.internal.AttendEventTransactionResult;
+import com.event.application.dto.attendance.external.PointGrantCommand;
 import com.event.application.dto.attendance.internal.AttendanceRewardInfo;
 import com.event.application.dto.attendance.result.AttendEventResult;
 import com.event.application.dto.attendance.result.AttendanceSummaryDto;
 import com.event.application.dto.attendance.result.AttendanceWinDto;
-import com.event.application.port.output.EventApplicantCommandPort;
-import com.event.application.port.output.EventEntryQueryPort;
+import com.event.application.port.output.EventApplicantRepositoryPort;
 import com.event.application.port.output.EventQueryPort;
 import com.event.application.port.output.EventRoundPrizeQueryPort;
 import com.event.application.port.output.EventRoundQueryPort;
@@ -31,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,10 +49,7 @@ class AttendEventTransactionServiceTest {
     private EventRoundQueryPort eventRoundQueryPort;
 
     @Mock
-    private EventApplicantCommandPort eventApplicantCommandPort;
-
-    @Mock
-    private EventEntryQueryPort eventEntryQueryPort;
+    private EventApplicantRepositoryPort eventApplicantRepositoryPort;
 
     @Mock
     private EventRoundPrizeQueryPort eventRoundPrizeQueryPort;
@@ -63,6 +60,9 @@ class AttendEventTransactionServiceTest {
     @Mock
     private AttendanceProcessor attendanceProcessor;
 
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
     private AttendEventTransactionService attendEventTransactionService;
 
     @BeforeEach
@@ -70,17 +70,17 @@ class AttendEventTransactionServiceTest {
         attendEventTransactionService = new AttendEventTransactionService(
                 eventQueryPort,
                 eventRoundQueryPort,
-                eventApplicantCommandPort,
-                eventEntryQueryPort,
+                eventApplicantRepositoryPort,
                 eventRoundPrizeQueryPort,
                 prizeQueryPort,
                 new AttendanceDomainService(),
-                attendanceProcessor
+                attendanceProcessor,
+                applicationEventPublisher
         );
     }
 
     @Test
-    void attend_shouldCreateApplicantAndBuildPointGrantCommand() {
+    void attend_shouldCreateApplicantAndPublishPointGrantEvent() {
         AttendEventCommand command = AttendEventCommand.of(1L, 11L, 999L);
         EventEntity event = EventEntity.builder()
                 .id(1L)
@@ -100,19 +100,19 @@ class AttendEventTransactionServiceTest {
                 .build();
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(11L)
-                .eventId(1L)
+                .event(event)
                 .roundNo(1)
                 .isConfirmed(false)
                 .build();
         EventApplicantEntity applicant = EventApplicantEntity.builder()
                 .id(100L)
-                .eventId(1L)
-                .roundId(11L)
+                .event(event)
+                .round(round)
                 .memberId(999L)
                 .build();
         EventRoundPrizeEntity eventRoundPrize = EventRoundPrizeEntity.builder()
                 .id(300L)
-                .roundId(11L)
+                .round(round)
                 .prizeId(400L)
                 .priority(0)
                 .isActive(true)
@@ -133,29 +133,33 @@ class AttendEventTransactionServiceTest {
                 AttendanceSummaryDto.of(1, 31)
         );
 
-        when(eventQueryPort.findById(1L)).thenReturn(Optional.of(event));
         when(eventRoundQueryPort.findById(11L)).thenReturn(Optional.of(round));
-        when(eventApplicantCommandPort.save(any(EventApplicantEntity.class))).thenReturn(applicant);
+        when(eventApplicantRepositoryPort.findByEventIdAndMemberIdForUpdate(1L, 999L)).thenReturn(List.of());
+        when(eventApplicantRepositoryPort.save(any(EventApplicantEntity.class))).thenReturn(applicant);
         when(eventRoundPrizeQueryPort.findActiveByRoundId(11L)).thenReturn(List.of(eventRoundPrize));
         when(prizeQueryPort.findById(400L)).thenReturn(Optional.of(prize));
-        when(eventEntryQueryPort.countByEventIdAndMemberId(1L, 999L)).thenReturn(0L);
         when(eventRoundQueryPort.countByEventId(1L)).thenReturn(31L);
         when(attendanceProcessor.process(
                 applicant,
                 round,
                 999L,
                 new AttendanceRewardInfo(300L, 400L, "출석 포인트", RewardType.POINT, 30),
-                1,
-                31
+                1L,
+                31L
         )).thenReturn(attendEventResult);
 
-        AttendEventTransactionResult result = attendEventTransactionService.attend(command);
+        AttendEventResult result = attendEventTransactionService.attend(command);
 
-        assertThat(result.attendEventResult()).isEqualTo(attendEventResult);
-        assertThat(result.pointGrantCommand()).isNotNull();
-        assertThat(result.pointGrantCommand().idempotencyKey()).isEqualTo("ATTENDANCE:1:11:999");
-        assertThat(result.pointGrantCommand().pointAmount()).isEqualTo(30);
-        verify(eventApplicantCommandPort).save(any(EventApplicantEntity.class));
+        assertThat(result).isEqualTo(attendEventResult);
+        verify(eventApplicantRepositoryPort).save(any(EventApplicantEntity.class));
+        verify(applicationEventPublisher).publishEvent(PointGrantCommand.of(
+                1L,
+                11L,
+                999L,
+                300L,
+                30,
+                "ATTENDANCE:1:11:999"
+        ));
     }
 
     @Test
@@ -179,14 +183,14 @@ class AttendEventTransactionServiceTest {
                 .build();
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(11L)
-                .eventId(1L)
+                .event(event)
                 .roundNo(1)
                 .isConfirmed(false)
                 .build();
 
-        when(eventQueryPort.findById(1L)).thenReturn(Optional.of(event));
         when(eventRoundQueryPort.findById(11L)).thenReturn(Optional.of(round));
-        when(eventApplicantCommandPort.save(any(EventApplicantEntity.class)))
+        when(eventApplicantRepositoryPort.findByEventIdAndMemberIdForUpdate(1L, 999L)).thenReturn(List.of());
+        when(eventApplicantRepositoryPort.save(any(EventApplicantEntity.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
         assertThatThrownBy(() -> attendEventTransactionService.attend(command))
@@ -214,9 +218,25 @@ class AttendEventTransactionServiceTest {
                 .isDuplicateWinner(false)
                 .isMultipleEntry(false)
                 .build();
+        EventEntity otherEvent = EventEntity.builder()
+                .id(2L)
+                .eventName("other")
+                .eventType(EventType.ATTENDANCE)
+                .startAt(Instant.now().minusSeconds(3600))
+                .endAt(Instant.now().plusSeconds(3600))
+                .supplierId(1L)
+                .priority(1)
+                .isActive(true)
+                .isVisible(true)
+                .isAutoEntry(false)
+                .isSnsLinked(false)
+                .isWinnerAnnounced(false)
+                .isDuplicateWinner(false)
+                .isMultipleEntry(false)
+                .build();
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(11L)
-                .eventId(2L)
+                .event(otherEvent)
                 .roundNo(1)
                 .isConfirmed(false)
                 .build();

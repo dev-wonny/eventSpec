@@ -17,7 +17,7 @@
 | ATT-TEST-009 | 같은 회원이 여러 날짜 회차에 출석 요청 | `event_applicant`는 `round_id + member_id` 기준으로 각 날짜마다 한 건씩 생성된다 | ATT-RULE-003, ATT-RULE-006 |
 | ATT-TEST-010 | 월간 이벤트의 마지막 날짜 회차 출석 요청 | 올바른 `event_round`가 선택되고 출석이 저장된다 | ATT-RULE-001, ATT-RULE-002 |
 | ATT-TEST-011 | 외부 point API 실패 | 로컬 `event_applicant`, `event_entry`, `event_win`은 유지되고 오류 로그와 운영 알림이 남는다 | ATT-RULE-009, ATT-RULE-012 |
-| ATT-TEST-012 | 외부 point API 무응답 또는 타임아웃 | 로컬 데이터는 유지되고 운영 알림 대상이 되며 사용자 응답은 출석 성공으로 유지된다 | ATT-RULE-012, ATT-RULE-013 |
+| ATT-TEST-012 | 외부 point API 무응답 또는 타임아웃 | 타임아웃도 외부 API 실패로 동일하게 처리되며, 로컬 데이터는 유지되고 운영 알림 대상이 되며 사용자 응답은 출석 성공으로 유지된다 | ATT-RULE-012, ATT-RULE-013 |
 | ATT-TEST-026 | point API retry 발생 | 같은 `idempotency_key = event_id + round_id + member_id`로 중복 point 지급이 발생하지 않는다 | ATT-RULE-012, ATT-RULE-013 |
 | ATT-TEST-027 | point 지급 성공 후 event 서버 타임아웃 발생 뒤 재시도 | point 시스템의 `idempotency_key`가 중복 지급을 막는다 | ATT-RULE-012, ATT-RULE-013 |
 | ATT-TEST-033 | 운영 재처리로 point API를 다시 호출하는 경우 | 같은 `idempotency_key = event_id + round_id + member_id` 재호출로 중복 지급이 발생하지 않는다 | ATT-RULE-012, ATT-RULE-013 |
@@ -64,7 +64,7 @@
 ### ATT-TEST-019 현재 동기식 외부 연동 제약
 
 - 외부 point API 응답 지연 중에도 로컬 트랜잭션은 이미 커밋되어 있어야 하며, 실패 시 운영 보정 대상으로 남아야 한다.
-- 외부 point API 타임아웃은 최대 3초 안에 종료되어야 한다.
+- 외부 point API 타임아웃은 최대 3초 안에 종료되어야 하며, 로그와 알림은 일반 외부 API 실패 기준으로 남겨야 한다.
 
 ## 테스트 레벨 가이드
 

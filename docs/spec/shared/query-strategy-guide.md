@@ -27,6 +27,14 @@
 - `findByEventIdAndMemberIdAndIsDeletedFalse`
 - `countByEventIdAndIsDeletedFalse`
 
+### 1-1. count 반환 타입은 기본적으로 `long`
+
+- DB `COUNT(*)` 결과는 보통 `BIGINT`로 해석한다.
+- Spring Data JPA의 count 계열 메서드도 기본적으로 `long` 반환이 자연스럽다.
+- count 의미의 값은 repository, port, service, response까지 가능하면 `long`으로 유지한다.
+- 현재 값이 작아 보여도 중간에 `int`로 줄이는 이점은 거의 없고, overflow 위험만 만든다.
+- `int`는 "절대 상한이 매우 작다"는 도메인 보장이 명확하고, 그 근거가 문서에 남을 때만 예외적으로 사용한다.
+
 ### 2. QueryDSL은 검색성 조회에만 사용한다
 
 아래 조건 중 하나라도 해당하면 QueryDSL 사용을 권장한다.

@@ -16,7 +16,7 @@ public class EventWinImpl implements EventWinQueryPort, EventWinCommandPort {
 
     @Override
     public List<EventWinEntity> findByEventIdAndMemberId(Long eventId, Long memberId) {
-        return eventWinJpaRepository.findByEventIdAndMemberIdAndIsDeletedFalse(eventId, memberId);
+        return eventWinJpaRepository.findByEvent_IdAndMemberIdAndIsDeletedFalse(eventId, memberId);
     }
 
     @Override

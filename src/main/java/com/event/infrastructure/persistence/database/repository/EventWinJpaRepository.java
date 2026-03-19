@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EventWinJpaRepository extends JpaRepository<EventWinEntity, Long> {
 
-    List<EventWinEntity> findByEventIdAndMemberIdAndIsDeletedFalse(Long eventId, Long memberId);
+    List<EventWinEntity> findByEvent_IdAndMemberIdAndIsDeletedFalse(Long eventId, Long memberId);
 }

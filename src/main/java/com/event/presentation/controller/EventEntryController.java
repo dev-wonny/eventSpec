@@ -2,15 +2,14 @@ package com.event.presentation.controller;
 
 import com.event.application.dto.attendance.command.AttendEventCommand;
 import com.event.application.port.input.AttendEventUseCase;
-import com.event.presentation.header.ApiHeaderNames;
 import com.event.presentation.dto.response.BaseResponse;
 import com.event.presentation.dto.response.EventEntryResponse;
+import com.event.presentation.resolver.MemberId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,12 +26,12 @@ public class EventEntryController {
     public BaseResponse<EventEntryResponse> enterEvent(
             @PathVariable Long eventId,
             @PathVariable Long roundId,
-            @RequestHeader(ApiHeaderNames.X_MEMBER_ID) Long memberId
+            @MemberId Long memberId
     ) {
         EventEntryResponse response = EventEntryResponse.from(
                 attendEventUseCase.attend(AttendEventCommand.of(eventId, roundId, memberId))
         );
 
-        return BaseResponse.success("출석 체크가 완료되었습니다.", response);
+        return BaseResponse.success(response);
     }
 }

@@ -1,12 +1,12 @@
 package com.event.presentation.dto.response;
 
 import com.event.application.dto.event.EventDetailDto;
+import com.event.application.dto.event.EventRoundDto;
 import com.event.domain.model.EventType;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Builder;
-
 import java.time.Instant;
 import java.util.List;
+import lombok.Builder;
 
 /**
  * 출석 이벤트의 전체 회차 목록과 출석 상태를 조회
@@ -41,13 +41,19 @@ public record EventDetailResponse(
         String description,
         @Schema(description = "전체 회차 수")
         Integer totalCount,
-        @Schema(description = "이벤트 회차 목록")
+        @Schema(description = "이벤트 회차 목록. 데이터가 없어도 null 대신 빈 배열을 사용한다")
         List<EventRoundResponse> rounds,
         @Schema(description = "출석 요약 정보. 회원 식별 헤더가 없으면 null")
         AttendanceSummaryResponse attendanceSummary
 ) {
 
     public static EventDetailResponse from(EventDetailDto dto) {
+        List<EventRoundDto> rounds = dto.rounds() == null ? List.of() : dto.rounds();
+        List<EventRoundResponse> roundResponses = rounds
+                .stream()
+                .map(EventRoundResponse::from)
+                .toList();
+
         return EventDetailResponse.builder()
                 .eventId(dto.eventId())
                 .eventName(dto.eventName())
@@ -61,7 +67,7 @@ public record EventDetailResponse(
                 .isVisible(dto.isVisible())
                 .description(dto.description())
                 .totalCount(dto.totalCount())
-                .rounds(dto.rounds().stream().map(EventRoundResponse::from).toList())
+                .rounds(roundResponses)
                 .attendanceSummary(AttendanceSummaryResponse.from(dto.attendanceSummary()))
                 .build();
     }

@@ -47,7 +47,7 @@ class AttendanceDomainServiceTest {
 
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(10L)
-                .eventId(1L)
+                .event(event)
                 .roundNo(1)
                 .isConfirmed(false)
                 .build();
@@ -77,10 +77,26 @@ class AttendanceDomainServiceTest {
                 .isDuplicateWinner(false)
                 .isMultipleEntry(false)
                 .build();
+        EventEntity otherEvent = EventEntity.builder()
+                .id(2L)
+                .eventName("other")
+                .eventType(EventType.ATTENDANCE)
+                .startAt(Instant.now().minusSeconds(3600))
+                .endAt(Instant.now().plusSeconds(3600))
+                .supplierId(1L)
+                .priority(0)
+                .isActive(true)
+                .isVisible(true)
+                .isAutoEntry(false)
+                .isSnsLinked(false)
+                .isWinnerAnnounced(false)
+                .isDuplicateWinner(false)
+                .isMultipleEntry(false)
+                .build();
 
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(10L)
-                .eventId(2L)
+                .event(otherEvent)
                 .roundNo(1)
                 .isConfirmed(false)
                 .build();
@@ -116,7 +132,7 @@ class AttendanceDomainServiceTest {
 
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(10L)
-                .eventId(1L)
+                .event(event)
                 .roundNo(1)
                 .isConfirmed(false)
                 .build();
@@ -159,7 +175,7 @@ class AttendanceDomainServiceTest {
 
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(10L)
-                .eventId(1L)
+                .event(event)
                 .roundNo(1)
                 .isConfirmed(false)
                 .build();
@@ -202,7 +218,7 @@ class AttendanceDomainServiceTest {
 
         EventRoundEntity round = EventRoundEntity.builder()
                 .id(10L)
-                .eventId(1L)
+                .event(event)
                 .roundNo(1)
                 .isConfirmed(false)
                 .build();
@@ -226,16 +242,38 @@ class AttendanceDomainServiceTest {
 
     @Test
     void validateAttendanceReward_shouldThrow_whenActiveRewardsAreMoreThanOne() {
+        EventEntity event = EventEntity.builder()
+                .id(1L)
+                .eventName("attendance")
+                .eventType(EventType.ATTENDANCE)
+                .startAt(Instant.now().minusSeconds(3600))
+                .endAt(Instant.now().plusSeconds(3600))
+                .supplierId(1L)
+                .priority(0)
+                .isActive(true)
+                .isVisible(true)
+                .isAutoEntry(false)
+                .isSnsLinked(false)
+                .isWinnerAnnounced(false)
+                .isDuplicateWinner(false)
+                .isMultipleEntry(false)
+                .build();
+        EventRoundEntity round = EventRoundEntity.builder()
+                .id(10L)
+                .event(event)
+                .roundNo(1)
+                .isConfirmed(false)
+                .build();
         EventRoundPrizeEntity first = EventRoundPrizeEntity.builder()
                 .id(1L)
-                .roundId(10L)
+                .round(round)
                 .prizeId(100L)
                 .priority(0)
                 .isActive(true)
                 .build();
         EventRoundPrizeEntity second = EventRoundPrizeEntity.builder()
                 .id(2L)
-                .roundId(10L)
+                .round(round)
                 .prizeId(101L)
                 .priority(1)
                 .isActive(true)
@@ -260,9 +298,31 @@ class AttendanceDomainServiceTest {
 
     @Test
     void validateAttendanceReward_shouldThrow_whenRewardTypeIsNotPoint() {
+        EventEntity event = EventEntity.builder()
+                .id(1L)
+                .eventName("attendance")
+                .eventType(EventType.ATTENDANCE)
+                .startAt(Instant.now().minusSeconds(3600))
+                .endAt(Instant.now().plusSeconds(3600))
+                .supplierId(1L)
+                .priority(0)
+                .isActive(true)
+                .isVisible(true)
+                .isAutoEntry(false)
+                .isSnsLinked(false)
+                .isWinnerAnnounced(false)
+                .isDuplicateWinner(false)
+                .isMultipleEntry(false)
+                .build();
+        EventRoundEntity round = EventRoundEntity.builder()
+                .id(10L)
+                .event(event)
+                .roundNo(1)
+                .isConfirmed(false)
+                .build();
         EventRoundPrizeEntity reward = EventRoundPrizeEntity.builder()
                 .id(1L)
-                .roundId(10L)
+                .round(round)
                 .prizeId(100L)
                 .priority(0)
                 .isActive(true)

@@ -10,11 +10,11 @@ import lombok.Builder;
  */
 @Builder
 public record AttendanceSummaryDto(
-        int attendedDays,
-        int totalDays
+        long attendedDays,
+        long totalDays
 ) {
 
-    public static AttendanceSummaryDto of(int attendedDays, int totalDays) {
+    public static AttendanceSummaryDto of(long attendedDays, long totalDays) {
         return AttendanceSummaryDto.builder()
                 .attendedDays(attendedDays)
                 .totalDays(totalDays)

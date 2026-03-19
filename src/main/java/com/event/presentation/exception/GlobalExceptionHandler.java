@@ -6,6 +6,7 @@ import com.event.presentation.dto.response.BaseResponse;
 import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -116,7 +117,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<BaseResponse<Map<String, String>>> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException ex
     ) {
-        String parameterName = ex.getName() != null ? ex.getName() : "request";
+        String parameterName = Objects.nonNull(ex.getName()) ? ex.getName() : "request";
         Map<String, String> errors = Map.of(
                 parameterName,
                 parameterName + " 값의 형식이 올바르지 않습니다."

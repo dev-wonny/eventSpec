@@ -13,11 +13,13 @@
 현재 프로젝트의 Entity 원칙은 아래와 같다.
 
 - Entity는 persistence model이다.
+- Entity 필드 설명은 긴 코드 주석보다 `@Comment("이벤트명")` 같은 형태로 붙이는 것을 권장한다.
+- 현재 프로젝트는 DDL 자동 생성/반영을 하지 않으므로 `@Comment`는 DB 동기화 목적보다 코드 가독성 목적에 가깝다.
 - 저장과 상태 변경은 JPA Entity 기준으로 처리한다.
 - 조회는 QueryDSL로 필요한 데이터를 각각 조회한다.
 - JPA 연관관계 기반 join fetch, entity graph, lazy 컬렉션 순회는 기본 전략으로 사용하지 않는다.
 - 최소 FK만 두므로 Entity는 연관 객체 대신 ID 필드를 기본으로 사용한다.
-- 도메인 정책과 비즈니스 규칙은 Entity보다 `DomainService`, `Policy`, `Processor`에 둔다.
+- 도메인 규칙과 비즈니스 규칙은 Entity보다 `DomainService`, `Processor`에 둔다.
 
 정리:
 
@@ -134,6 +136,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
@@ -151,10 +154,12 @@ public class EventEntity extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Comment("이벤트명")
     @Column(name = "event_name", nullable = false, length = 100)
     private String eventName;
 
     @Enumerated(EnumType.STRING)
+    @Comment("이벤트 유형")
     @Column(name = "event_type", nullable = false, length = 50)
     private EventType eventType;
 
@@ -590,7 +595,7 @@ Entity에서 하지 않는 것은 아래와 같다.
 - soft delete는 `@SQLDelete`, `@SQLRestriction` 패턴을 권장한다.
 - 조회는 QueryDSL 개별 조회, 저장은 JPA Entity를 기준으로 한다.
 - Entity 컬렉션 연관관계는 현재 기본 구조에서 두지 않는다.
-- Event 타입 확장은 JPA 상속보다 `EventType + Policy`로 처리한다.
+- Event 타입 확장은 JPA 상속보다 `EventType + DomainService`로 처리한다.
 
 ## 14. 한 줄 정리
 

@@ -106,7 +106,7 @@
 - point 보상 매핑이 있으면 별도 재고 검증 없이 지급한다.
 - 회차에 보상 매핑이 없으면 무보상 출석으로 처리한다.
 - 랜덤 리워드에서는 같은 회차에 여러 보상 정책을 연결하고, 기본적으로 `weight` 기반으로 실제 지급 대상을 계산한다.
-- 랜덤 리워드의 `weight` 기본값은 `1`이며, 운영 정책에 따라 확률 계산 보조값으로 사용한다.
+- 랜덤 리워드의 `weight` DB 기본값은 `1`이며, Java 코드에서는 `DEFAULT_WEIGHT` 같은 상수로 관리한다. 운영 정책에 따라 확률 계산 보조값으로 사용한다.
 - coupon, product 등 다른 보상 유형은 확장 가능하지만 현재 1차 출석체크 설계의 중심은 아니다.
 
 ### ATT-RULE-011 prize는 운영상 불변으로 취급한다
@@ -125,7 +125,7 @@
 
 - 출석 회차에 point 보상 매핑이 있는 경우에만 외부 point API를 호출한다.
 - 보상 매핑이 있는 출석은 `event_applicant`, `event_entry.is_winner = true`, `event_win`을 먼저 저장하고 로컬 트랜잭션을 커밋한다.
-- 외부 point API는 로컬 커밋 이후에 호출한다.
+- 트랜잭션 안에서는 `PointGrantCommand`를 event로 발행하고, 외부 point API는 `AFTER_COMMIT` listener가 로컬 커밋 이후 호출한다.
 - 외부 point API 호출이 실패하거나 무응답이어도 `event_applicant`, `event_entry`, `event_win`은 롤백하지 않는다.
 - 외부 point API 호출 실패는 `ERROR` 로그와 운영 알림으로 처리한다.
 - 회차에 보상 매핑이 없으면 외부 point API를 호출하지 않고 `event_entry`만 저장한다.
@@ -136,7 +136,7 @@
 
 - 현재는 외부 보상 API 응답을 기다리는 동기 처리 구조를 사용한다.
 - 외부 point API의 timeout 기준은 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`다.
-- 외부 point API 타임아웃은 외부 시스템 장애로 간주한다.
+- 외부 point API 타임아웃은 외부 API 실패의 한 형태로 간주한다.
 - 타임아웃이 발생해도 로컬 출석 데이터는 유지하고 운영 보정 대상으로 남긴다.
 - 사용자 응답은 로컬 출석 성공을 유지한다.
 - 외부 API가 응답하지 않으면 운영 알림을 남기고 후속 재처리 대상으로 관리한다.

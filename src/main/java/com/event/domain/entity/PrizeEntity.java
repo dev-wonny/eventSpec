@@ -13,6 +13,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.SQLDelete;
 
 @Getter
@@ -24,28 +25,31 @@ public class PrizeEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Comment("보상 ID")
     private Long id;
 
+    @Comment("보상명")
     @Column(name = "prize_name", nullable = false, length = 100)
     private String prizeName;
 
     @Enumerated(EnumType.STRING)
+    @Comment("보상 유형")
     @Column(name = "reward_type", nullable = false, length = 50)
     private RewardType rewardType;
 
-    // 포인트형 보상일 때만 사용되는 수량이다.
+    @Comment("포인트 지급 수량")
     @Column(name = "point_amount")
     private Integer pointAmount;
 
-    // 쿠폰형 보상일 때 연결되는 외부/내부 쿠폰 ID다.
+    @Comment("쿠폰 ID")
     @Column(name = "coupon_id")
     private Long couponId;
 
-    // 운영 중인 보상인지 여부다.
+    @Comment("보상 활성 여부")
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
-    // 운영자 메모나 상세 설명으로 사용할 수 있는 필드다.
+    @Comment("보상 설명")
     @Column(name = "prize_description")
     private String prizeDescription;
 

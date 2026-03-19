@@ -14,6 +14,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
@@ -29,67 +30,75 @@ public class EventEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Comment("이벤트 ID")
     private Long id;
 
+    @Comment("이벤트명")
     @Column(name = "event_name", nullable = false, length = 100)
     private String eventName;
 
     @Enumerated(EnumType.STRING)
+    @Comment("이벤트 유형")
     @Column(name = "event_type", nullable = false, length = 50)
     private EventType eventType;
 
+    @Comment("이벤트 시작 시각")
     @Column(name = "start_at", nullable = false)
     private Instant startAt;
 
+    @Comment("이벤트 종료 시각")
     @Column(name = "end_at", nullable = false)
     private Instant endAt;
 
+    @Comment("공급사 ID")
     @Column(name = "supplier_id", nullable = false)
     private Long supplierId;
 
+    @Comment("이벤트 URL")
     @Column(name = "event_url", length = 300)
     private String eventUrl;
 
-    // 정기 추첨형 이벤트에서 당첨자 선정 주기를 나타내는 값이다.
+    @Comment("당첨자 선정 주기")
     @Column(name = "winner_selection_cycle")
     private Integer winnerSelectionCycle;
 
-    // 정기 추첨형 이벤트에서 선정 기준 시각으로 쓰는 값이다.
+    @Comment("당첨자 선정 기준 시각")
     @Column(name = "winner_selection_base_at")
     private Instant winnerSelectionBaseAt;
 
-    // 노출 정렬 우선순위다. 숫자가 낮을수록 먼저 노출될 수 있다.
+    @Comment("노출 우선순위")
     @Column(name = "priority", nullable = false)
     private Integer priority;
 
-    // 운영 중인 이벤트인지 여부다.
+    @Comment("이벤트 활성화 여부")
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
-    // 사용자 화면에 노출할지 여부다.
+    @Comment("이벤트 노출 여부")
     @Column(name = "is_visible", nullable = false)
     private Boolean isVisible;
 
-    // 별도 사용자 액션 없이 자동 응모 가능한지 여부다.
+    @Comment("자동 응모 여부")
     @Column(name = "is_auto_entry", nullable = false)
     private Boolean isAutoEntry;
 
-    // SNS 연동이 필요한 이벤트인지 여부다.
+    @Comment("SNS 연동 여부")
     @Column(name = "is_sns_linked", nullable = false)
     private Boolean isSnsLinked;
 
-    // 당첨자 발표가 끝났는지 여부다.
+    @Comment("당첨자 발표 완료 여부")
     @Column(name = "is_winner_announced", nullable = false)
     private Boolean isWinnerAnnounced;
 
-    // 같은 회원의 중복 당첨 허용 여부다.
+    @Comment("중복 당첨 허용 여부")
     @Column(name = "is_duplicate_winner", nullable = false)
     private Boolean isDuplicateWinner;
 
-    // 같은 회원의 다중 응모 허용 여부다.
+    @Comment("다중 응모 허용 여부")
     @Column(name = "is_multiple_entry", nullable = false)
     private Boolean isMultipleEntry;
 
+    @Comment("이벤트 설명")
     @Column(name = "description")
     private String description;
 

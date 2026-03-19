@@ -1,20 +1,27 @@
 # Service Validation
 
 이 문서는 출석체크 구현 시 Service 레이어에서 반드시 검증해야 하는 규칙을 정리한다. 최소 FK와 최소 unique를 함께 두는 전제를 기준으로, API 요청 시점에 판단해야 하는 업무 규칙을 중심으로 작성한다.
+현재 구현 기준으로는 `Application Service`가 흐름을 조립하고, 출석 전용 도메인 규칙은 `AttendanceDomainService`가 검증한다.
 
 ## 목적
 
-- Service에서 어떤 순서로 무엇을 검증해야 하는지 고정한다.
+- Application Service에서 어떤 순서로 무엇을 조회하고 검증해야 하는지 고정한다.
 - DB 제약만으로 막히지 않는 업무 규칙을 애플리케이션에서 보완한다.
 - 출석체크와 랜덤 리워드가 같은 테이블을 공유하더라도 출석 전용 규칙을 명확히 분리한다.
 
 ## 검증 원칙
 
-- 출석 요청은 `POST /event/v1/events/{eventId}/rounds/{roundId}/entries` 진입 시 Service에서 검증한다.
-- DB FK가 보호하지 않는 값참조 정합성은 Service에서 명시적으로 검증한다.
-- DB에는 최소 unique만 두고, 업무 규칙은 Service가 우선 보장한다.
+- 출석 요청은 `POST /event/v1/events/{eventId}/rounds/{roundId}/entries` 진입 시 `Application Service`와 `AttendanceDomainService`가 나눠 검증한다.
+- DB FK가 보호하지 않는 값참조 정합성은 `Application Service`가 조회 후 `AttendanceDomainService`에서 명시적으로 검증한다.
+- DB에는 최소 unique만 두고, 업무 규칙은 Service 계층이 우선 보장한다.
 - 출석체크 전용 규칙과 공용 이벤트 규칙을 구분한다.
 - 검증 실패는 저장 전에 종료하는 것을 기본으로 한다.
+
+## 책임 분리
+
+- `Application Service`: 이벤트/회차/보상 매핑 조회, applicant 저장, 트랜잭션 관리, after-commit event 발행
+- `AttendanceDomainService`: 출석 가능 여부 검증, 이벤트-회차 정합성 검증, 출석 보상 구성 검증
+- `AFTER_COMMIT Listener`: 외부 point API 호출, 실패 로그, 운영 알림
 
 ## 검증 순서
 
@@ -25,16 +32,17 @@
 5. unique 충돌 시 중복 출석 변환
 6. 출석 회차 보상 매핑 검증
 7. `event_entry`, `event_win` 저장 및 로컬 커밋
-8. 외부 point API post-commit 호출
-9. 실패 시 로그 및 운영 알림
+8. `PointGrantCommand` after-commit event 발행
+9. commit 성공 후 listener에서 외부 point API 호출
+10. 실패 시 로그 및 운영 알림
 
 ## 규칙
 
 ### ATT-SVC-001 요청 필수값 검증
 
 - `eventId`, `roundId`, `X-Member-Id`는 출석 요청에서 필수다.
-- `X-Member-Id` 누락이나 타입 오류는 controller `@RequestHeader` 바인딩과 전역 예외 처리기에서 `INVALID_REQUEST`로 종료한다.
-- Service는 필수 요청값이 정상 바인딩되었다는 전제에서 비즈니스 검증을 수행한다.
+- `X-Member-Id` 누락이나 타입 오류는 interceptor + argument resolver와 전역 예외 처리기에서 `INVALID_REQUEST`로 종료한다.
+- `Application Service`는 필수 요청값이 정상 바인딩되었다는 전제에서 비즈니스 검증을 수행한다.
 
 ### ATT-SVC-002 이벤트 상태 검증
 
@@ -96,18 +104,20 @@ if (!round.getEventId().equals(eventId)) {
 - 보상 매핑이 있는 경우에만 외부 point API를 호출한다.
 - 보상 매핑이 없는 경우 외부 point API를 호출하지 않는다.
 - 출석체크형 이벤트는 `event_applicant` 저장 후 `event_entry`, `event_win`을 먼저 저장하고 커밋한다.
+- 보상 매핑이 있는 경우 `PointGrantCommand`를 만들어 트랜잭션 안에서 이벤트로 발행한다.
 - 보상 매핑이 있는 경우 출석체크형 이벤트의 `event_entry.is_winner`는 저장 시점에 `true`다.
 - 보상 매핑이 없는 경우 `event_entry`만 저장하고 `event_win`은 생성하지 않는다.
 
 ### ATT-SVC-008 외부 연동 후처리 검증
 
-- 외부 point API는 로컬 트랜잭션 커밋 이후 호출해야 한다.
+- 외부 point API는 로컬 트랜잭션 커밋 이후 `@TransactionalEventListener(phase = AFTER_COMMIT)`에서 호출해야 한다.
+- 트랜잭션 안에서는 외부 point API를 직접 호출하지 않고 `publishEvent(PointGrantCommand)`까지만 수행한다.
 - 외부 point API가 실패하거나 무응답이어도 `event_applicant`, `event_entry`, `event_win`은 롤백하지 않는다.
 - 외부 point API 실패는 구조화 로그와 운영 알림으로 처리해야 한다.
 - 외부 point API가 호출되지 않은 무보상 출석은 `event_entry`만 저장한다.
 - 외부 point API client는 `connection timeout = 1초`, `read timeout = 2초`, `총 대기 시간 = 최대 3초`를 사용해야 한다.
-- 외부 point API 타임아웃은 외부 시스템 장애로 간주하고, 운영 보정 대상으로 남겨야 한다.
-- 타임아웃 발생 시 Service는 `requestId`, `commonCode=INTERNAL_ERROR`, `domainCode=POINT_API_TIMEOUT`, `eventId`, `roundId`, `memberId`를 구조화 로그로 남겨야 한다.
+- 외부 point API 타임아웃은 외부 API 실패의 한 형태로 간주하고, 운영 보정 대상으로 남겨야 한다.
+- 외부 point API 실패 발생 시 Service는 `requestId`, `commonCode=INTERNAL_ERROR`, `eventId`, `roundId`, `memberId`를 구조화 로그로 남겨야 한다.
 - 외부 point API 호출 시 `idempotency_key = event_id + round_id + member_id`를 함께 전달해야 한다.
 - 같은 출석 요청의 point API retry는 외부 point 시스템의 `UNIQUE(idempotency_key)`로 중복 지급을 막아야 한다.
 - 현재 출석체크에서는 `date`, `rewardId`를 별도 멱등 키 구성값으로 추가하지 않고 `event_id + round_id + member_id`만 사용한다.
@@ -136,4 +146,5 @@ if (!round.getEventId().equals(eventId)) {
 - 출석체크와 랜덤 리워드는 `event_round_prize`를 공유하므로, 출석 전용 제약은 Service에서 `event_type = ATTENDANCE`일 때만 적용한다.
 - applicant는 요청 시 생성하므로, Service는 사전 조회 없이 applicant insert와 unique 충돌 변환을 정확히 처리해야 한다.
 - 동시성 제어는 조회만으로 끝내지 말고 락, 최소 unique 충돌 처리, 재검증 전략을 함께 고려한다.
+- 외부 point API 분리 구조는 `after-commit-external-api.md`를 기준으로 구현한다.
 - 자세한 동시성 전략은 `concurrency-control.md`를 기준으로 구현한다.

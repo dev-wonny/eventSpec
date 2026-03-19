@@ -2,15 +2,19 @@ package com.event.domain.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -24,25 +28,31 @@ public class EventEntryEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Comment("참여 이력 ID")
     private Long id;
 
+    @Comment("applicant ID")
     @Column(name = "applicant_id", nullable = false)
     private Long applicantId;
 
-    @Column(name = "event_id", nullable = false)
-    private Long eventId;
+    @Comment("이벤트")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "event_id", nullable = false)
+    private EventEntity event;
 
+    @Comment("회원 ID")
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 
+    @Comment("응모 시각")
     @Column(name = "applied_at", nullable = false)
     private Instant appliedAt;
 
-    // 연결된 회차 보상이 있을 때만 채워진다.
+    @Comment("회차 보상 매핑 ID")
     @Column(name = "event_round_prize_id")
     private Long eventRoundPrizeId;
 
-    // 출석 자체는 항상 저장되지만, 보상 매핑 유무에 따라 당첨 여부가 갈린다.
+    @Comment("당첨 여부")
     @Column(name = "is_winner", nullable = false)
     private Boolean isWinner;
 
@@ -50,7 +60,7 @@ public class EventEntryEntity extends BaseEntity {
     private EventEntryEntity(
             Long id,
             Long applicantId,
-            Long eventId,
+            EventEntity event,
             Long memberId,
             Instant appliedAt,
             Long eventRoundPrizeId,
@@ -58,7 +68,7 @@ public class EventEntryEntity extends BaseEntity {
     ) {
         this.id = id;
         this.applicantId = applicantId;
-        this.eventId = eventId;
+        this.event = event;
         this.memberId = memberId;
         this.appliedAt = appliedAt;
         this.eventRoundPrizeId = eventRoundPrizeId;
@@ -66,8 +76,7 @@ public class EventEntryEntity extends BaseEntity {
     }
 
     public static EventEntryEntity create(
-            Long applicantId,
-            Long eventId,
+            EventApplicantEntity applicant,
             Long memberId,
             Long eventRoundPrizeId,
             boolean isWinner,
@@ -75,8 +84,8 @@ public class EventEntryEntity extends BaseEntity {
     ) {
         // entry는 실제 출석 완료 이력을 남기는 핵심 레코드다.
         EventEntryEntity entity = EventEntryEntity.builder()
-                .applicantId(applicantId)
-                .eventId(eventId)
+                .applicantId(applicant.getId())
+                .event(applicant.getEvent())
                 .memberId(memberId)
                 .appliedAt(Instant.now())
                 .eventRoundPrizeId(eventRoundPrizeId)

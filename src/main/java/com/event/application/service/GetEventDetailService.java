@@ -6,7 +6,7 @@ import com.event.application.dto.event.EventRoundDto;
 import com.event.application.dto.event.EventWinInfoDto;
 import com.event.application.dto.event.GetEventDetailQuery;
 import com.event.application.port.input.GetEventDetailUseCase;
-import com.event.application.port.output.EventEntryQueryPort;
+import com.event.application.port.output.EventEntryRepositoryPort;
 import com.event.application.port.output.EventQueryPort;
 import com.event.application.port.output.EventRoundPrizeQueryPort;
 import com.event.application.port.output.EventRoundQueryPort;
@@ -47,7 +47,7 @@ public class GetEventDetailService implements GetEventDetailUseCase {
 
     private final EventQueryPort eventQueryPort;
     private final EventRoundQueryPort eventRoundQueryPort;
-    private final EventEntryQueryPort eventEntryQueryPort;
+    private final EventEntryRepositoryPort eventEntryRepositoryPort;
     private final EventWinQueryPort eventWinQueryPort;
     private final EventRoundPrizeQueryPort eventRoundPrizeQueryPort;
     private final PrizeQueryPort prizeQueryPort;
@@ -63,9 +63,9 @@ public class GetEventDetailService implements GetEventDetailUseCase {
             throw BusinessException.from(EventCode.EVENT_NOT_ATTENDANCE);
         }
 
-        List<EventRoundEntity> rounds = eventRoundQueryPort.findAllByEventId(query.eventId());
+        List<EventRoundEntity> rounds = eventRoundQueryPort.findAllByEventId(event.getId());
 
-        if (query.memberId() == null) {
+        if (Objects.isNull(query.memberId())) {
             // 2-1. 회원 식별 정보가 없으면 회차 기본 정보만 조립한다.
             return EventDetailDto.of(
                     event,
@@ -83,17 +83,18 @@ public class GetEventDetailService implements GetEventDetailUseCase {
         }
 
         // 2-2. 회원 식별 정보가 있으면 출석 상태와 당첨 정보를 함께 계산한다.
-        List<EventWinEntity> wins = eventWinQueryPort.findByEventIdAndMemberId(query.eventId(), query.memberId());
+        List<EventWinEntity> wins = eventWinQueryPort.findByEventIdAndMemberId(event.getId(), query.memberId());
 
-        Set<Long> attendedRoundIds = eventEntryQueryPort.findAttendedRoundIdsByEventIdAndMemberId(
-                query.eventId(),
+        // event_entry에는 round_id가 없어서 round_id를 event_application에서 얻으려고 작업
+        Set<Long> attendedRoundIds = eventEntryRepositoryPort.findAttendedRoundIdsByEventIdAndMemberId(
+                event.getId(),
                 query.memberId()
         );
 
         // 회차별 당첨 정보 결합을 쉽게 하기 위해 roundId 기준 맵으로 바꿔 둔다.
         Map<Long, EventWinEntity> winByRoundId = wins.stream()
                 .collect(Collectors.toMap(
-                        EventWinEntity::getRoundId,
+                        win -> win.getRound().getId(),
                         Function.identity(),
                         (first, second) -> first
                 ));
@@ -146,19 +147,19 @@ public class GetEventDetailService implements GetEventDetailUseCase {
             Map<Long, PrizeEntity> prizeMap
     ) {
         // 당첨 정보가 없으면 응답의 win 필드는 null이다.
-        if (win == null || win.getEventRoundPrizeId() == null) {
+        if (Objects.isNull(win) || Objects.isNull(win.getEventRoundPrizeId())) {
             return null;
         }
 
         // 연결 테이블이 사라졌거나 비정상이면 당첨 정보 조립을 생략한다.
         EventRoundPrizeEntity eventRoundPrize = eventRoundPrizeMap.get(win.getEventRoundPrizeId());
-        if (eventRoundPrize == null) {
+        if (Objects.isNull(eventRoundPrize)) {
             return null;
         }
 
         // 실제 prize 정보가 없으면 노출할 수 없으므로 null 처리한다.
         PrizeEntity prize = prizeMap.get(eventRoundPrize.getPrizeId());
-        if (prize == null) {
+        if (Objects.isNull(prize)) {
             return null;
         }
 
@@ -193,7 +194,7 @@ public class GetEventDetailService implements GetEventDetailUseCase {
 
     private LocalDate resolveRoundDate(EventEntity event, EventRoundEntity round) {
         // 회차 개별 시작일이 있으면 그 값을 우선한다.
-        if (round.getRoundStartAt() != null) {
+        if (Objects.nonNull(round.getRoundStartAt())) {
             return round.getRoundStartAt().atZone(AppTimeZones.ASIA_SEOUL).toLocalDate();
         }
 

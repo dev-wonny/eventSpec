@@ -1,4 +1,4 @@
-package com.event.infrastructure.logging;
+package com.event.infrastructure.filter;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -38,4 +38,3 @@ public class AccessLogFilter extends OncePerRequestFilter {
         }
     }
 }
-

@@ -10,9 +10,9 @@
 
 이 세 가지는 이벤트 시스템에서 가장 많은 버그와 복잡도를 만드는 영역이므로 설계 원칙을 명확히 한다.
 
-## 1. JPA 상속 대신 Policy 전략
+## 1. JPA 상속 대신 DomainService 전략
 
-이벤트 플랫폼은 `AttendanceEventEntity extends EventEntity` 같은 JPA 상속 구조보다 `EventEntity + Policy` 전략을 우선 사용한다.
+이벤트 플랫폼은 `AttendanceEventEntity extends EventEntity` 같은 JPA 상속 구조보다 `EventEntity + DomainService` 전략을 우선 사용한다.
 
 이유:
 
@@ -23,7 +23,7 @@
 원칙:
 
 - `EventEntity`는 공통 데이터와 persistence 상태만 가진다.
-- 이벤트 타입별 행위는 `Policy` 또는 타입별 processor에서 처리한다.
+- 이벤트 타입별 행위와 규칙은 `DomainService` 또는 타입별 processor에서 처리한다.
 - 출석체크처럼 현재 구현 범위가 하나뿐인 경우에는 공통 추상화보다 전용 processor를 우선한다.
 
 ## 2. Event Aggregate 설계
@@ -35,7 +35,7 @@
 - 이벤트 기본 정보 관리
 - 이벤트 상태 관리
 - 이벤트 타입 관리
-- 이벤트 정책 결정 기준 제공
+- 이벤트 규칙 판단 기준 제공
 
 현재 기준의 Aggregate 내부 구성:
 
@@ -85,7 +85,7 @@ EventWin
 
 이벤트가 `ACTIVE` 상태일 때만 참여 가능하다.
 
-이 상태 판단은 `Domain Service` 또는 `EventPolicy`에서 수행한다.
+이 상태 판단은 `Domain Service`에서 수행한다.
 
 ## 4. EventRound 설계
 
@@ -131,7 +131,7 @@ EventWin
 
 - 회차 참여 가능 여부 판단
 - 회차 진행 기간 판단
-- 회차별 보상 정책 연결
+- 회차별 보상 규칙 연결
 - 회차별 추첨/확정 기준 제공
 
 즉, `event_round`는 "항상 날짜"가 아니라 "이벤트 타입별 참여 단위"로 보는 것이 더 정확하다.
@@ -249,7 +249,7 @@ Reward 지급 과정:
 
 1. 이벤트 참여 요청
 2. `EventEntry` 생성
-3. Policy / Domain Service 검증
+3. Domain Service 검증
 4. 당첨 여부 결정
 5. `EventWin` 생성
 6. Reward 지급 또는 지급 성공 이력 반영
@@ -280,10 +280,11 @@ EventEntry 생성
 
 원칙:
 
-- `weight` 기본값은 `1`이다.
+- `weight` 기본값은 DB 스키마 기준 `1`이다.
 - 모든 보상의 `weight`가 `1`이면 균등 추첨으로 해석한다.
 - 특정 보상의 당첨 비중을 높이고 싶을 때만 `weight`를 증가시킨다.
 - 현재 기준에서 계산의 기본축은 `probability`보다 `weight`다.
+- Java 코드에서는 이 기본값을 숫자 리터럴로 직접 쓰지 않고 `DEFAULT_WEIGHT` 같은 상수로 관리한다.
 
 예:
 
@@ -309,7 +310,7 @@ weight 구간에 따라 Prize를 선택한다.
 
 위 경우 최종 비중은 `1 : 1 : 3`이다.
 
-현재 스키마에서는 `event_round_prize_probability.weight` 기본값을 `1`로 두고, `probability`는 향후 보정 규칙이 필요할 때 확장적으로 해석할 수 있다.
+현재 스키마에서는 `event_round_prize_probability.weight` 기본값을 `1`로 두고, Java 코드에서는 같은 의미를 `DEFAULT_WEIGHT` 상수로 관리한다. `probability`는 향후 보정 규칙이 필요할 때 확장적으로 해석할 수 있다.
 
 ## 10. 동시성 문제
 
@@ -343,7 +344,6 @@ weight 구간에 따라 Prize를 선택한다.
 Controller -> ApplicationService
 ApplicationService -> Repository 조회
 ApplicationService -> DomainService 검증
-ApplicationService -> EventPolicy 호출
 ApplicationService -> Entry 저장
 ApplicationService -> Win 저장
 ```
@@ -352,7 +352,7 @@ ApplicationService -> Win 저장
 
 - 지금은 출석체크만 개발 범위이므로 `entry / draw / reward`를 공통 인터페이스로 먼저 분리하지 않는다.
 - 대신 `AttendanceProcessor` 같은 출석체크 전용 처리 컴포넌트 안에서 `entry -> draw -> reward`를 순서대로 수행하는 구조를 권장한다.
-- 랜덤 리워드나 추첨 이벤트가 실제 구현 범위에 들어와 두 번째 구체 구현이 생기면, 그 시점에 `DrawPolicy`, `RewardProcessor` 같은 공통 인터페이스 분리를 검토한다.
+- 랜덤 리워드나 추첨 이벤트가 실제 구현 범위에 들어와 두 번째 구체 구현이 생기면, 그 시점에 공통 추상화가 정말 필요한지 다시 검토한다.
 
 예:
 
@@ -391,7 +391,7 @@ ApplicationService -> DTO 조립
 - `GAME`
 - `LOTTERY`
 
-이벤트 타입에 따라 Policy가 달라진다.
+이벤트 타입에 따라 적용되는 DomainService가 달라질 수 있다.
 
 ### Attendance Event
 
@@ -416,53 +416,48 @@ ApplicationService -> DTO 조립
 주의:
 
 - 위 타입 구분은 JPA 상속 엔티티 구조를 의미하지 않는다.
-- 실제 확장 기준은 `EventType + Policy` 조합이다.
+- 실제 확장 기준은 `EventType + DomainService` 조합이다.
 
-## 13. Policy 구조
+## 13. 이벤트 타입별 DomainService 구조
 
-기본 인터페이스:
-
-- `EventPolicy`
-
-구현:
-
-- `AttendanceEventPolicy`
-- `RandomRewardPolicy`
-- `GameEventPolicy`
-- `LotteryEventPolicy`
-
-`ApplicationService`는 `PolicyFactory`를 통해 Policy를 가져온다.
-
-다만 현재 구현 범위에서는 `EventPolicy` 공통 인터페이스를 실제 코드로 먼저 도입하기보다, 출석체크 전용 `AttendanceProcessor`와 `AttendanceDomainService`를 우선 구현하는 방향이 더 단순하다.
-즉 `Policy` 구조는 플랫폼 확장 방향으로 유지하되, 실제 코드 추상화는 랜덤 리워드가 구현 범위에 들어올 때 검토한다.
-
-## 14. PolicyFactory
-
-`PolicyFactory` 역할:
-
-- `EventType -> Policy` 매핑
+현재 기준 기본 단위는 별도 정책 인터페이스가 아니라 타입별 `DomainService`다.
 
 예:
 
-- `ATTENDANCE -> AttendanceEventPolicy`
-- `RANDOM_REWARD -> RandomRewardPolicy`
-- `GAME -> GameEventPolicy`
+- `AttendanceDomainService`
+- `RandomRewardDomainService`
+- `GameDomainService`
+- `LotteryDomainService`
+
+`ApplicationService`는 유스케이스에 필요한 `DomainService`를 직접 호출한다.
+
+다만 현재 구현 범위에서는 공통 인터페이스를 실제 코드로 먼저 도입하기보다, 출석체크 전용 `AttendanceProcessor`와 `AttendanceDomainService`를 우선 구현하는 방향이 더 단순하다.
+즉 별도 정책 계층보다 타입별 `DomainService`를 먼저 두고, 공통 추상화는 실제 중복이 생길 때 검토한다.
+
+## 14. 확장 방식
+
+새 이벤트 타입이 추가되면 해당 타입 전용 `DomainService`를 추가한다.
+
+예:
+
+- `ATTENDANCE -> AttendanceDomainService`
+- `RANDOM_REWARD -> RandomRewardDomainService`
+- `GAME -> GameDomainService`
 
 새 이벤트 타입 추가 시:
 
 1. `EventType` 추가
-2. `Policy` 구현 추가
-3. `Factory` 매핑 추가
+2. `DomainService` 구현 추가
+3. 해당 `ApplicationService` 흐름에 연결
 
 ## 15. 이벤트 시스템 설계 핵심
 
 1. Event 테이블은 하나로 유지한다.
 2. `EventType`으로 이벤트를 분기한다.
-3. `Policy`로 이벤트 규칙을 분리한다.
-4. `DomainService`로 도메인 검증을 수행한다.
-5. `ApplicationService`로 유스케이스를 실행한다.
-6. `*Impl`로 DB 접근을 수행한다.
-7. 이벤트 타입 확장은 JPA 상속보다 `EventEntity + Policy` 전략을 우선한다.
+3. `DomainService`로 이벤트 규칙과 도메인 검증을 수행한다.
+4. `ApplicationService`로 유스케이스를 실행한다.
+5. `*Impl`로 DB 접근을 수행한다.
+6. 이벤트 타입 확장은 JPA 상속보다 `EventEntity + DomainService` 전략을 우선한다.
 
 ## 16. 최종 아키텍처 요약
 
@@ -470,7 +465,6 @@ ApplicationService -> DTO 조립
 Controller
  -> ApplicationService
    -> DomainService
-   -> EventPolicy
    -> RepositoryPort
      -> *Impl
        -> Database
